@@ -51,8 +51,9 @@ export default async function DashboardPage() {
       />
 
       {/* Hero: ask the agent (continues as a chat on /ask) */}
-      <Card className="border-teal-200 bg-gradient-to-br from-teal-50/60 to-emerald-50/40 p-6">
-        <form action="/ask" method="GET" className="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <Card className="relative overflow-hidden border-teal-200 p-6">
+        <div className="aura" aria-hidden />
+        <form action="/ask" method="GET" className="relative flex flex-col gap-3 sm:flex-row sm:items-start">
           <textarea
             name="q"
             rows={2}
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
             Ask my agent →
           </button>
         </form>
-        <p className="mt-2.5 text-xs text-slate-500">
+        <p className="relative mt-2.5 text-xs text-slate-500">
           Your agent replies in chat with a mission draft — you see the exact outreach message and
           approve before anything is sent.
         </p>

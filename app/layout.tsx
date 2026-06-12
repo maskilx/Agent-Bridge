@@ -26,6 +26,9 @@ export const metadata: Metadata = {
 
 const themeInit = `(function(){try{var q=new URLSearchParams(location.search).get("theme");if(q==="light"||q==="dark")localStorage.setItem("ab-theme",q);document.documentElement.dataset.theme=localStorage.getItem("ab-theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}})()`;
 
+// App (product) theme: light | dark | system — resolved before paint, scoped to .app-shell.
+const appThemeInit = `(function(){try{var p=localStorage.getItem("ab-app-theme")||"system";var d=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):p;document.documentElement.dataset.appTheme=d}catch(e){document.documentElement.dataset.appTheme="light"}})()`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,6 +41,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <script dangerouslySetInnerHTML={{ __html: appThemeInit }} />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

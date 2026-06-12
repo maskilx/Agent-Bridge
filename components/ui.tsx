@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandTile } from "./icons";
 
 /** Bridge-relay mark: two endpoints joined by an arc, accent node at the apex. */
 export function LogoMark({ size = 26, className = "" }: { size?: number; className?: string }) {
@@ -115,15 +116,14 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <Card className="flex flex-col items-center justify-center px-6 py-16 text-center">
+    <Card className="relative flex flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+      <div className="aura" aria-hidden />
       <div className="relative mb-4">
-        <span className="halo absolute inset-0 rounded-2xl bg-teal-200/50 blur-xl" aria-hidden />
-        <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-600 text-lg text-white shadow-md shadow-teal-600/20">
-          ✦
-        </span>
+        <span className="halo absolute -inset-2 rounded-2xl bg-teal-200/40 blur-xl" aria-hidden />
+        <BrandTile size={46} radius={15} />
       </div>
-      <p className="font-display text-[18px] font-medium text-slate-800">{title}</p>
-      {hint && <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-slate-400">{hint}</p>}
+      <p className="relative font-display text-[18px] font-medium text-slate-800">{title}</p>
+      {hint && <p className="relative mt-1.5 max-w-sm text-sm leading-relaxed text-slate-400">{hint}</p>}
     </Card>
   );
 }

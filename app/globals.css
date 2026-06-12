@@ -119,6 +119,121 @@ body {
   background-clip: content-box;
 }
 
+/* ---------- signature: the bridge aura ----------
+   Two soft glows — evergreen and champagne — drifting toward each other:
+   two sides, gently bridged. Subtle by design. */
+.aura {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aura::before,
+.aura::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+}
+.aura::before {
+  width: 36rem;
+  height: 24rem;
+  left: 50%;
+  top: -6rem;
+  background: radial-gradient(closest-side, rgba(61, 154, 127, 0.17), transparent 70%);
+  transform: translateX(-74%);
+  animation: aura-a 16s ease-in-out infinite alternate;
+}
+.aura::after {
+  width: 32rem;
+  height: 22rem;
+  left: 50%;
+  top: -3rem;
+  background: radial-gradient(closest-side, rgba(214, 178, 106, 0.13), transparent 70%);
+  transform: translateX(-20%);
+  animation: aura-b 19s ease-in-out infinite alternate;
+}
+@keyframes aura-a {
+  from { transform: translateX(-74%) translateY(0) scale(1); }
+  to { transform: translateX(-62%) translateY(16px) scale(1.07); }
+}
+@keyframes aura-b {
+  from { transform: translateX(-20%) translateY(10px) scale(1); }
+  to { transform: translateX(-34%) translateY(-10px) scale(1.05); }
+}
+/* the rail is permanently dark — restore true white inside it so the token
+   inversion never touches rail text/surfaces */
+html[data-app-theme="dark"] .app-shell aside {
+  --color-white: #ffffff;
+}
+
+/* in dark, the evergreen glow leads and the champagne recedes */
+html[data-app-theme="dark"] .app-shell .aura::before {
+  background: radial-gradient(closest-side, rgba(79, 177, 140, 0.13), transparent 70%);
+}
+html[data-app-theme="dark"] .app-shell .aura::after {
+  background: radial-gradient(closest-side, rgba(214, 178, 106, 0.05), transparent 70%);
+}
+
+/* ---------- app dark theme (scoped to the product shell) ----------
+   Token inversion: the same utilities resolve to warm-dark values inside
+   .app-shell when the html attribute is set. Login + landing keep their own
+   theming. */
+html[data-app-theme="dark"] .app-shell {
+  --background: #131210;
+  --foreground: #f0eee7;
+  --color-white: #1c1a16;
+  --color-slate-50: #211f1b;
+  --color-slate-100: #272420;
+  --color-slate-200: #353129;
+  --color-slate-300: #46423a;
+  --color-slate-400: #757064;
+  --color-slate-500: #94907f;
+  --color-slate-600: #b5b0a2;
+  --color-slate-700: #d3cfc2;
+  --color-slate-800: #e6e3d9;
+  --color-slate-900: #f3f1ea;
+  --color-teal-50: #1a2620;
+  --color-teal-100: #203029;
+  --color-teal-200: #2a4338;
+  --color-teal-300: #3a604f;
+  --color-teal-400: #4d8a6f;
+  --color-teal-500: #4fa583;
+  --color-teal-600: #4fb18c;
+  --color-teal-700: #5ec19b;
+  --color-teal-800: #74d1ad;
+  --color-teal-900: #9adfc3;
+  --color-emerald-50: #1c2a1e;
+  --color-emerald-100: #233424;
+  --color-emerald-200: #2f4630;
+  --color-emerald-300: #41603f;
+  --color-emerald-400: #5d8a57;
+  --color-emerald-500: #6da366;
+  --color-emerald-600: #7cb573;
+  --color-emerald-700: #92c789;
+  --color-emerald-800: #abd6a2;
+  --color-emerald-900: #c6e4bf;
+  --color-amber-50: #2b2414;
+  --color-amber-100: #382e17;
+  --color-amber-200: #51421e;
+  --color-amber-300: #715a25;
+  --color-amber-500: #d9a43c;
+  --color-amber-600: #e2b251;
+  --color-amber-700: #ecc36c;
+  --color-rose-50: #31201f;
+  --color-rose-100: #3e2826;
+  --color-rose-200: #5c3733;
+  --color-rose-300: #84493f;
+  --color-rose-500: #e98373;
+  --color-rose-600: #f09384;
+  --color-rose-700: #f6a99c;
+  --color-sky-50: #1c2730;
+  --color-sky-100: #233340;
+  --color-sky-200: #2f4557;
+  --color-sky-500: #6aaed4;
+  --color-sky-700: #95c8e4;
+}
+
 /* ---------- product motion ---------- */
 
 @keyframes rise {

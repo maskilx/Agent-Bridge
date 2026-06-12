@@ -12,7 +12,7 @@ export default async function AskPage({
   const { q } = await searchParams;
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
       <AgentChat agentName={agent.display_name} initialQuery={q} />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { BrandTile, IconArrowUp } from "@/components/icons";
 
 /* ------------------------------------------------------------------ types */
 
@@ -59,23 +60,12 @@ const mid = () => nextId++;
 
 /* ------------------------------------------------------------- primitives */
 
-function AgentMark({ size = "md" }: { size?: "md" | "lg" }) {
-  const cls = size === "lg" ? "h-12 w-12 rounded-2xl text-lg" : "h-7 w-7 rounded-[9px] text-[13px]";
-  return (
-    <span
-      className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-teal-600 to-emerald-600 text-white shadow-[0_2px_8px_rgba(42,117,96,0.35)] ${cls}`}
-    >
-      ✦
-    </span>
-  );
-}
-
 /** Agent turns read like a considered reply — open text beside the mark, no box. */
 function AgentTurn({ children }: { children: React.ReactNode }) {
   return (
     <div className="msg-in flex items-start gap-3.5">
       <span className="mt-0.5">
-        <AgentMark />
+        <BrandTile size={28} radius={9} />
       </span>
       <div className="min-w-0 max-w-[88%] pt-0.5 text-[15px] leading-7 text-slate-700">{children}</div>
     </div>
@@ -627,30 +617,78 @@ export default function AgentChat({
 
   const empty = messages.length === 0;
 
+  const composer = (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void send(input);
+      }}
+      className="flex w-full items-end gap-2 rounded-[22px] border border-slate-200/90 bg-white p-2 shadow-[0_2px_6px_rgba(29,27,23,0.05),0_18px_50px_-20px_rgba(29,27,23,0.18)] transition focus-within:border-teal-600/50 focus-within:shadow-[0_2px_6px_rgba(29,27,23,0.05),0_18px_50px_-18px_rgba(34,92,77,0.25)]"
+    >
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void send(input);
+          }
+        }}
+        rows={1}
+        autoFocus
+        placeholder={pendingQuestion ? "Answer your agent…" : "Message your agent…"}
+        className="max-h-40 min-h-[48px] flex-1 resize-none bg-transparent px-3.5 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
+      />
+      <button
+        type="submit"
+        disabled={busy || !input.trim()}
+        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[15px] bg-slate-900 text-white shadow-sm transition-all duration-150 hover:bg-slate-800 disabled:opacity-25"
+        aria-label="Send"
+      >
+        <IconArrowUp size={17} />
+      </button>
+    </form>
+  );
+
+  /* ---- first-run: calm, centered — like opening a conversation ---- */
+  if (empty) {
+    return (
+      <div className="relative flex flex-1 flex-col items-center justify-center pb-16 text-center">
+        <div className="aura" aria-hidden />
+        <div className="rise relative">
+          <span className="halo absolute -inset-4 rounded-[28px] bg-teal-300/25 blur-2xl" aria-hidden />
+          <BrandTile size={56} radius={18} />
+        </div>
+        <h2 className="rise rise-1 mt-7 max-w-xl font-display text-[36px] font-medium leading-tight tracking-tight text-slate-900">
+          What should your agent take&nbsp;care&nbsp;of?
+        </h2>
+        <p className="rise rise-2 mt-3 max-w-md text-[14.5px] leading-relaxed text-slate-500">
+          {agentName} prepares a mission for anything you ask, shows you the exact message it will
+          send, and shares nothing without your approval.
+        </p>
+        <div className="rise rise-3 mt-9 w-full max-w-2xl">{composer}</div>
+        <div className="rise rise-4 mt-5 flex max-w-2xl flex-wrap justify-center gap-2">
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => void send(s)}
+              className="rounded-full border border-slate-200/80 bg-white px-4 py-2 text-[13px] text-slate-600 shadow-[0_1px_3px_rgba(29,27,23,0.05)] transition-all duration-150 hover:-translate-y-px hover:border-teal-600/30 hover:text-teal-800 hover:shadow-[0_3px_10px_rgba(29,27,23,0.08)]"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <p className="rise rise-4 mt-8 text-[11.5px] text-slate-400">
+          Your agent never contacts anyone or shares anything without your approval.
+        </p>
+      </div>
+    );
+  }
+
+  /* ---- active conversation: messages flow, composer docks ---- */
   return (
     <div className="flex h-full min-h-[68vh] flex-col">
       <div className="flex-1 space-y-6 pb-8">
-        {empty && (
-          <div className="relative flex flex-col items-center justify-center pt-20 text-center">
-            {/* ambient glow */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute left-1/2 top-4 h-72 w-[34rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(58,138,111,0.12),transparent)]"
-            />
-            <div className="rise relative">
-              <span className="halo absolute -inset-3 rounded-3xl bg-teal-300/30 blur-2xl" aria-hidden />
-              <AgentMark size="lg" />
-            </div>
-            <h2 className="rise rise-1 mt-7 max-w-xl font-display text-[34px] font-medium leading-tight tracking-tight text-slate-900">
-              What should your agent take&nbsp;care&nbsp;of?
-            </h2>
-            <p className="rise rise-2 mt-3 max-w-md text-[14.5px] leading-relaxed text-slate-500">
-              {agentName} prepares a mission for anything you ask, shows you the exact message it
-              will send, and shares nothing without your approval.
-            </p>
-          </div>
-        )}
-
         {messages.map((m) => {
           switch (m.type) {
             case "user":
@@ -685,50 +723,9 @@ export default function AgentChat({
         <div ref={bottomRef} />
       </div>
 
-      {/* composer */}
-      <div className="sticky bottom-0 -mx-2 bg-gradient-to-t from-[#f6f4ef] via-[#f6f4ef] to-transparent px-2 pb-5 pt-8">
-        {empty && (
-          <div className="rise rise-3 mb-4 flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => void send(s)}
-                className="rounded-full border border-slate-200/80 bg-white px-4 py-2 text-[13.5px] text-slate-600 shadow-[0_1px_3px_rgba(29,27,23,0.05)] transition-all duration-150 hover:-translate-y-px hover:border-teal-600/30 hover:text-teal-800 hover:shadow-[0_3px_10px_rgba(29,27,23,0.08)]"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send(input);
-          }}
-          className={`${empty ? "rise rise-4" : ""} flex items-end gap-2 rounded-[20px] border border-slate-200/90 bg-white p-2 shadow-[0_2px_6px_rgba(29,27,23,0.05),0_18px_50px_-20px_rgba(29,27,23,0.18)] transition focus-within:border-teal-600/50 focus-within:shadow-[0_2px_6px_rgba(29,27,23,0.05),0_18px_50px_-18px_rgba(34,92,77,0.25)]`}
-        >
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void send(input);
-              }
-            }}
-            rows={1}
-            placeholder={pendingQuestion ? "Answer your agent…" : "Message your agent…"}
-            className="max-h-40 min-h-[46px] flex-1 resize-none bg-transparent px-3.5 py-2.5 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={busy || !input.trim()}
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] bg-slate-900 text-[16px] text-white shadow-sm transition-all duration-150 hover:bg-slate-800 disabled:opacity-25"
-            aria-label="Send"
-          >
-            ↑
-          </button>
-        </form>
+      {/* docked composer */}
+      <div className="sticky bottom-0 -mx-2 bg-gradient-to-t from-background via-background to-transparent px-2 pb-5 pt-8">
+        {composer}
         <p className="mt-2.5 text-center text-[11.5px] text-slate-400">
           Your agent never contacts anyone or shares anything without your approval.
         </p>
