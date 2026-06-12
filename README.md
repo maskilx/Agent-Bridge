@@ -24,14 +24,19 @@ with. Set `SHOW_SAMPLE_FOUNDERS=1` to also get one-click sign-in as them on the 
 
 ## Sign-in & access control
 
-- **Google** — copy `.env.example` to `.env.local` and set `GOOGLE_CLIENT_ID` /
-  `GOOGLE_CLIENT_SECRET` (OAuth client of type *Web application* with redirect URI
-  `http://localhost:3001/api/auth/google/callback`). The login page then shows
-  "Continue with Google"; new Google users get an agent and land in agent setup.
-- **Private alpha access** — when Google is not configured (or `ALLOW_DEV_LOGIN=1`), the
-  login page offers an email sign-in that exercises the same new-user flow.
-- **`ALLOWED_EMAILS`** — comma-separated allowlist enforced at sign-in *and* on every
-  session; unset means open sign-in (local development only).
+- **Google — the only production sign-in.** Copy `.env.example` to `.env.local` and set
+  `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (OAuth client of type *Web application*
+  with redirect URI `http://localhost:3001/api/auth/google/callback`). If Google is not
+  configured, production shows "Private alpha sign-in is currently unavailable" — there
+  is **no** fallback login.
+- **Development email sign-in — local only.** `next dev` offers an email-only sign-in for
+  testing the new-user flow. It does not verify email ownership, so the server action
+  rejects it in production builds regardless of the UI (only the explicit
+  `DANGEROUSLY_ALLOW_DEV_LOGIN=1` flag can override this — never set it on a deployment).
+- **`ALLOWED_EMAILS` — authorization, not authentication.** A comma-separated allowlist of
+  which *authenticated* Google identities may use the app, enforced at sign-in, on every
+  session, and on API bearer tokens. It does not prove identity by itself; unset means
+  open sign-in (local development only).
 - **Cloudflare Access** — for deployments, an edge gate blocks uninvited visitors before
   the app loads, and `proxy.ts` verifies the Access JWT so the origin URL can't be used to
   bypass it. **See [DEPLOYMENT.md](./DEPLOYMENT.md)** for the full private-deployment

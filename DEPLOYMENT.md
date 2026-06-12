@@ -4,7 +4,9 @@ Goal: the app is reachable on a real URL, but **uninvited visitors never see Age
 all** — they are blocked at the edge before any page loads.
 
 > **Current deployment status (June 2026):** deployed to Railway with layer 3 active
-> (`ALLOWED_EMAILS=adi.maskil@gmail.com`). **Layers 1–2 (Cloudflare Access + JWT
+> (`ALLOWED_EMAILS=adi.maskil@gmail.com`; Google OAuth is the only sign-in — until
+> `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set, production shows "sign-in
+> unavailable" and no one can log in). **Layers 1–2 (Cloudflare Access + JWT
 > verification) are deferred until a domain is available** — Access can only protect a
 > domain in your Cloudflare zone, not a `*.up.railway.app` URL. Until then the login page
 > is publicly visible but nobody uninvited can sign in. Once a domain exists, follow
@@ -99,7 +101,13 @@ CF_ACCESS_CLIENT_ID=<service token id>
 CF_ACCESS_CLIENT_SECRET=<service token secret>
 ```
 
-## 4. Google OAuth (the product login, layer 3)
+## 4. Google OAuth (the ONLY production authentication, layer 3)
+
+Production has exactly one way to sign in: Google OAuth. The development email sign-in
+does not verify email ownership, so the server rejects it in production builds — if
+Google is not configured, the login page says "Private alpha sign-in is currently
+unavailable" and **nobody can log in**. Configuring Google is therefore a required
+deployment step, not an optional one:
 
 1. [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
    → Create credentials → **OAuth client ID** → type **Web application**.
@@ -108,14 +116,16 @@ CF_ACCESS_CLIENT_SECRET=<service token secret>
 3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the deployment.
 4. While the OAuth consent screen is in "Testing" mode, add your invitees as test users.
 
-## 5. Allowed emails (in-app allowlist)
+## 5. Allowed emails (authorization allowlist — not authentication)
 
 ```
 ALLOWED_EMAILS=adi.maskil@gmail.com
 ```
 
-- Comma-separated; checked at Google sign-in, at the private-alpha email sign-in, **and on
-  every session** — removing an email signs that user out immediately.
+- `ALLOWED_EMAILS` does **not** prove identity — Google OAuth does that. The allowlist
+  only decides which authenticated identities may use the app.
+- Comma-separated; enforced after Google sign-in, **on every session**, and on every API
+  bearer token — removing an email locks that user out immediately.
 - Keep this list in sync with the Cloudflare Access policy: Cloudflare decides who can see
   the site, `ALLOWED_EMAILS` decides who can use the product.
 
@@ -124,12 +134,16 @@ ALLOWED_EMAILS=adi.maskil@gmail.com
 | Variable | Value |
 |---|---|
 | `APP_URL` | `https://app.yourdomain.com` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from Google Cloud Console |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | **required** — the only production sign-in |
 | `ALLOWED_EMAILS` | `adi.maskil@gmail.com[,more…]` |
 | `CF_ACCESS_TEAM_DOMAIN` | `yourteam.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Access application AUD tag |
 | `DATA_DIR` | volume mount path, e.g. `/data` (hosts with disks) |
-| `ALLOW_DEV_LOGIN`, `SHOW_SAMPLE_FOUNDERS` | **leave unset** |
+
+**Must NOT be set in production:** `DANGEROUSLY_ALLOW_DEV_LOGIN` (re-enables the
+unverified email sign-in — anyone knowing an allowlisted address could log in) and
+`SHOW_SAMPLE_FOUNDERS` (development-only sample identities; ignored in production
+builds, but keep it unset regardless).
 
 ## Recommended production setup (today)
 

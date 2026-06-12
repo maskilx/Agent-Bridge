@@ -14,12 +14,12 @@ import {
 } from "./core";
 import { completeSession, decideProposal, sendSessionMessage, startSession } from "./sessions";
 import { decideIntro, requestIntro, syncIntros } from "./intros";
-import { googleConfigured } from "./google";
-import { allowedEmail, sampleFoundersEnabled } from "./access";
+import { allowedEmail, devLoginEnabled, sampleFoundersEnabled } from "./access";
 
-/** Sign in as a seeded sample founder — local demos only (SHOW_SAMPLE_FOUNDERS=1). */
+/** Sign in as a seeded sample founder — development only (SHOW_SAMPLE_FOUNDERS=1, never in production). */
 export async function loginAs(formData: FormData) {
-  if (!sampleFoundersEnabled()) redirect("/login");
+  // Server-side block, independent of the UI: sample logins are email-less auth.
+  if (!sampleFoundersEnabled() || !devLoginEnabled()) redirect("/login?error=signin_unavailable");
   const userId = String(formData.get("userId") ?? "");
   const user = getUserById(userId);
   if (!user || !user.email.endsWith("@agentbridge.demo")) redirect("/login");
@@ -27,9 +27,14 @@ export async function loginAs(formData: FormData) {
   redirect("/dashboard");
 }
 
-/** Private-alpha email sign-in: used while Google OAuth is unconfigured, or alongside it with ALLOW_DEV_LOGIN=1. */
+/**
+ * Email-only sign-in for LOCAL DEVELOPMENT. It does not verify email ownership,
+ * so the server rejects it outright in production (regardless of what the UI
+ * shows) unless DANGEROUSLY_ALLOW_DEV_LOGIN=1 is set explicitly. Production
+ * authentication is Google OAuth only.
+ */
 export async function devLogin(formData: FormData) {
-  if (googleConfigured() && process.env.ALLOW_DEV_LOGIN !== "1") redirect("/login");
+  if (!devLoginEnabled()) redirect("/login?error=signin_unavailable");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
   if (!email.includes("@")) redirect("/login?error=bad_email");

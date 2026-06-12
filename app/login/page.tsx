@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { devLogin, loginAs } from "@/lib/actions";
 import { currentUser } from "@/lib/auth";
 import { googleConfigured } from "@/lib/google";
-import { sampleFoundersEnabled } from "@/lib/access";
+import { devLoginEnabled, sampleFoundersEnabled } from "@/lib/access";
 import { listUsers, getAgentForUser } from "@/lib/core";
 import { Avatar, Logo, ProviderBadge } from "@/components/ui";
 
@@ -14,6 +14,7 @@ const ERRORS: Record<string, string> = {
   bad_email: "Please enter a valid email address.",
   not_invited:
     "This account doesn't have access to the alpha yet. If you believe it should, contact the AgentBridge team.",
+  signin_unavailable: "Private alpha sign-in is currently unavailable.",
 };
 
 const inputCls =
@@ -27,7 +28,9 @@ export default async function LoginPage({
   if (await currentUser()) redirect("/dashboard");
   const { error } = await searchParams;
   const hasGoogle = googleConfigured();
-  const showAlphaEmailForm = !hasGoogle || process.env.ALLOW_DEV_LOGIN === "1";
+  // Email-only sign-in never renders in production (the server action blocks it too).
+  const showAlphaEmailForm = devLoginEnabled();
+  const signInUnavailable = !hasGoogle && !showAlphaEmailForm;
   const sampleUsers = sampleFoundersEnabled()
     ? listUsers().filter((u) => u.email.endsWith("@agentbridge.demo"))
     : [];
@@ -70,6 +73,17 @@ export default async function LoginPage({
           </a>
         )}
 
+        {signInUnavailable && (
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
+            <p className="text-sm font-medium text-slate-700">
+              Private alpha sign-in is currently unavailable.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              If you were invited, contact the Agent Bridge team for access.
+            </p>
+          </div>
+        )}
+
         {showAlphaEmailForm && (
           <form action={devLogin} className={`${hasGoogle ? "mt-4" : "mt-6"} space-y-3`}>
             {hasGoogle && (
@@ -80,7 +94,7 @@ export default async function LoginPage({
               </div>
             )}
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Private alpha access
+              Development sign-in (no email verification — local only)
             </p>
             <input name="name" placeholder="Your name" className={inputCls} />
             <input
