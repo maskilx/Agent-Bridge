@@ -536,16 +536,22 @@ server.registerTool(
     description:
       "Turn the owner's natural-language request (e.g. 'find me a GTM cofounder', 'ask Noa if she is " +
       "open to an intro but don't share product details') into a Mission Draft: a scoped, temporary " +
-      "mandate with its own goal, target criteria, mission-specific share rules, and approval policy. " +
-      "The draft takes NO external action — review it with the owner, then approve_mission (with the " +
-      "owner's chosen targets) or cancel_mission.",
+      "mandate with its own goal, target criteria, mission-specific share rules, approval policy, and a " +
+      "safe outreach_message — the ONLY text other agents will ever receive (internal boundaries are " +
+      "never sent). May instead return a `clarify` question if the request is ambiguous: ask the owner, " +
+      "then call again with history. The draft takes NO external action — review it with the owner, " +
+      "then approve_mission (with the owner's chosen targets) or cancel_mission.",
     inputSchema: {
       request: z.string().describe("The owner's request to their agent, in natural language"),
+      history: z
+        .array(z.object({ question: z.string(), answer: z.string() }))
+        .optional()
+        .describe("Earlier clarify Q&A from this conversation, oldest first"),
     },
   },
-  async ({ request }) => {
+  async ({ request, history }) => {
     try {
-      return asResult(await api("POST", `/missions`, { request }));
+      return asResult(await api("POST", `/missions`, { request, history }));
     } catch (err) {
       return asError(err);
     }

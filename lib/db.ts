@@ -159,6 +159,7 @@ function migrate(d: Database.Database) {
       must_not_share TEXT NOT NULL DEFAULT '', -- mission-specific boundaries
       approval_policy TEXT NOT NULL DEFAULT '',
       expected_output TEXT NOT NULL DEFAULT '',
+      outreach_message TEXT NOT NULL DEFAULT '', -- the ONLY text other agents receive (user-approved)
       recommended_agent_ids TEXT NOT NULL DEFAULT '[]', -- JSON user ids the drafter recommends
       draft_source TEXT NOT NULL DEFAULT 'rules', -- rules | anthropic | openai
       status TEXT NOT NULL DEFAULT 'awaiting_user_approval',
@@ -198,6 +199,12 @@ function migrate(d: Database.Database) {
   // additive migration for databases created before missions
   const introCols = (d.prepare("PRAGMA table_info(intros)").all() as { name: string }[]).map((c) => c.name);
   if (!introCols.includes("mission_id")) d.exec("ALTER TABLE intros ADD COLUMN mission_id TEXT");
+
+  // additive migration: the user-approved external outreach message (what other
+  // agents actually receive — internal policy/boundaries never leave the system)
+  const missionCols = (d.prepare("PRAGMA table_info(missions)").all() as { name: string }[]).map((c) => c.name);
+  if (!missionCols.includes("outreach_message"))
+    d.exec("ALTER TABLE missions ADD COLUMN outreach_message TEXT NOT NULL DEFAULT ''");
 }
 
 // Sample founders so a freshly signed-in user immediately has agents to match with.

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { askAgentAction } from "@/lib/actions";
 import { getAgentForUser, listIncoming } from "@/lib/core";
 import { listIntros, waitingOn } from "@/lib/intros";
 import { listMissions, missionNeedsOwner } from "@/lib/missions";
@@ -51,11 +50,11 @@ export default async function DashboardPage() {
         subtitle="Tell it what you want — it drafts a mission, asks what it may share, and returns only with what matters."
       />
 
-      {/* Hero: ask the agent */}
+      {/* Hero: ask the agent (continues as a chat on /ask) */}
       <Card className="border-teal-200 bg-gradient-to-br from-teal-50/60 to-emerald-50/40 p-6">
-        <form action={askAgentAction} className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <form action="/ask" method="GET" className="flex flex-col gap-3 sm:flex-row sm:items-start">
           <textarea
-            name="request"
+            name="q"
             rows={2}
             required
             placeholder="What do you want your agent to do?  e.g. “Find me a GTM cofounder” or “Ask Noa if she's open to an intro, but don't share product details”"
@@ -65,11 +64,12 @@ export default async function DashboardPage() {
             type="submit"
             className="shrink-0 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           >
-            Draft mission →
+            Ask my agent →
           </button>
         </form>
         <p className="mt-2.5 text-xs text-slate-500">
-          You approve the mission before your agent contacts anyone. Boundaries and approvals always apply.
+          Your agent replies in chat with a mission draft — you see the exact outreach message and
+          approve before anything is sent.
         </p>
       </Card>
 

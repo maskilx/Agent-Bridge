@@ -2,7 +2,7 @@ import { db, newId } from "./db";
 import { getAgentForUser, getUserById, type Agent } from "./core";
 import { listIntrosByMission, requestIntro, type IntroView } from "./intros";
 import { listMissionMatches, type MissionMatch } from "./matching";
-import { draftMission, type DraftCandidate } from "./model";
+import { interpretRequest, type DraftCandidate } from "./model";
 
 /**
  * Missions — the dynamic layer on top of the stable agent profile.
@@ -42,6 +42,7 @@ export type Mission = {
   must_not_share: string;
   approval_policy: string;
   expected_output: string;
+  outreach_message: string;
   recommended_agent_ids: string; // JSON user ids
   draft_source: "rules" | "anthropic" | "openai";
   status: MissionStatus;
@@ -92,35 +93,62 @@ function candidatesFor(userId: string): DraftCandidate[] {
 
 /* ---------------- lifecycle ---------------- */
 
-/** Turn a natural-language request into a Mission Draft awaiting the owner's approval. */
-export async function createMissionDraft(userId: string, request: string): Promise<MissionView> {
+export type AskResult =
+  | { kind: "clarify"; reply: string; question: string }
+  | { kind: "draft"; reply: string; mission: MissionView };
+
+/**
+ * "Ask my agent": interpret the owner's request. Either the agent asks ONE
+ * clarifying question, or it creates a Mission Draft awaiting approval.
+ * `history` carries earlier clarify Q&A from the same conversation.
+ */
+export async function askAgent(
+  userId: string,
+  request: string,
+  history: { question: string; answer: string }[] = []
+): Promise<AskResult> {
   const trimmed = request.trim();
-  if (trimmed.length < 5) throw new Error("Tell your agent what you want — a sentence or two.");
+  if (trimmed.length < 3) throw new Error("Tell your agent what you want — a sentence or two.");
   if (trimmed.length > 2000) throw new Error("Keep the request under 2000 characters.");
   const user = getUserById(userId)!;
   const agent = getAgentForUser(userId);
   const candidates = candidatesFor(userId);
 
-  const { fields, source } = await draftMission({ request: trimmed, user, agent, candidates });
+  const result = await interpretRequest({
+    request: trimmed,
+    history: history.slice(-4),
+    user,
+    agent,
+    candidates,
+  });
+  if (result.kind === "clarify") {
+    return { kind: "clarify", reply: result.reply, question: result.question };
+  }
 
+  const { fields } = result;
   const byHandle = new Map(candidates.map((c) => [c.handle, c.user_id]));
   const targetIds = fields.target_handles.map((h) => byHandle.get(h)).filter(Boolean) as string[];
   const recommendedIds = fields.recommended_handles.map((h) => byHandle.get(h)).filter(Boolean) as string[];
+
+  const fullRequest = history.length
+    ? `${trimmed} (clarified: ${history.map((h) => h.answer).join("; ")})`
+    : trimmed;
 
   const id = newId("mis");
   db()
     .prepare(
       `INSERT INTO missions (id, owner_user_id, agent_id, title, user_request, goal, context,
                              target_criteria, target_agent_ids, allowed_to_share, must_not_share,
-                             approval_policy, expected_output, recommended_agent_ids, draft_source, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'awaiting_user_approval')`
+                             approval_policy, expected_output, outreach_message, recommended_agent_ids,
+                             draft_source, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'awaiting_user_approval')`
     )
     .run(
       id,
       userId,
       agent.id,
       fields.title,
-      trimmed,
+      fullRequest.slice(0, 2000),
       fields.goal,
       fields.context,
       fields.target_criteria,
@@ -129,10 +157,11 @@ export async function createMissionDraft(userId: string, request: string): Promi
       fields.must_not_share,
       fields.approval_policy,
       fields.expected_output,
+      fields.outreach_message,
       JSON.stringify(recommendedIds),
-      source
+      result.source
     );
-  return getMissionView(userId, id);
+  return { kind: "draft", reply: result.reply, mission: getMissionView(userId, id) };
 }
 
 const EDITABLE_FIELDS = [
@@ -144,6 +173,7 @@ const EDITABLE_FIELDS = [
   "must_not_share",
   "approval_policy",
   "expected_output",
+  "outreach_message",
 ] as const;
 
 /** Owner edits the draft before approving. Only allowed while the mission awaits approval. */
@@ -172,13 +202,25 @@ export type LaunchResult = { target_user_id: string; name: string; ok: boolean; 
  * owner selected on the approval screen (capped at 5) — each one runs through
  * the existing intro engine with the mission's share rules and checkpoints.
  */
-export function approveMission(userId: string, missionId: string, targetUserIds: string[]): {
+export function approveMission(
+  userId: string,
+  missionId: string,
+  targetUserIds: string[],
+  opts: { outreachMessage?: string } = {}
+): {
   mission: MissionView;
   launched: LaunchResult[];
 } {
   const mission = requireOwnMission(userId, missionId);
   if (!["draft", "awaiting_user_approval"].includes(mission.status))
     throw new Error(`Mission ${missionId} was already decided (status: ${mission.status}).`);
+
+  // The owner may have edited the outreach message right on the approval card.
+  if (opts.outreachMessage?.trim()) {
+    db()
+      .prepare("UPDATE missions SET outreach_message = ? WHERE id = ?")
+      .run(opts.outreachMessage.trim().slice(0, 700), missionId);
+  }
 
   setMissionStatus(missionId, "running");
 

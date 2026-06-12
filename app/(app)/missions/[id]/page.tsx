@@ -142,6 +142,20 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
                     <label className={labelCls}>What the agent should bring back</label>
                     <textarea name="expected_output" rows={2} defaultValue={mission.expected_output} className={inputCls} />
                   </div>
+                  <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4">
+                    <label className={labelCls}>
+                      Outreach message — the exact text the other agent receives, nothing else
+                    </label>
+                    <textarea
+                      name="outreach_message"
+                      rows={3}
+                      defaultValue={mission.outreach_message}
+                      className={inputCls}
+                    />
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Your boundaries and private notes are never sent — only this message.
+                    </p>
+                  </div>
                   <button
                     type="submit"
                     className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-teal-300 hover:text-teal-800"
@@ -155,9 +169,14 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
               <Card className="border-teal-200 p-6 shadow-md shadow-teal-100/50">
                 <h2 className="text-sm font-semibold text-slate-900">Who may your agent contact?</h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Approving launches outreach to the checked people only (max 5). Each one still goes
-                  through relevance checks, reports, and your approval before anything sensitive is shared.
+                  Approving sends the message below to the checked people only (max 5). Contact details
+                  stay locked until both sides approve.
                 </p>
+                {mission.outreach_message && (
+                  <blockquote className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm italic leading-relaxed text-slate-700">
+                    “{mission.outreach_message}”
+                  </blockquote>
+                )}
                 <form action={approveMissionAction} className="mt-4">
                   <input type="hidden" name="missionId" value={mission.id} />
                   <div className="space-y-2">
@@ -232,6 +251,16 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
                     <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Expected result</dt>
                     <dd>{mission.expected_output || "A structured report with a recommendation."}</dd>
                   </div>
+                  {mission.outreach_message && (
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Message your agent sends
+                      </dt>
+                      <dd className="mt-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 italic">
+                        “{mission.outreach_message}”
+                      </dd>
+                    </div>
+                  )}
                   {mission.result_summary && (
                     <div className="rounded-xl bg-slate-50 p-3">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-teal-700">Result so far</dt>

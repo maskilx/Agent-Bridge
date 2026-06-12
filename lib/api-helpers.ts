@@ -108,6 +108,7 @@ export function serializeMission(m: MissionView) {
     must_not_share: m.must_not_share,
     approval_policy: m.approval_policy,
     expected_output: m.expected_output,
+    outreach_message: m.outreach_message,
     draft_source: m.draft_source,
     result_summary: m.result_summary,
     intros: m.intros.map((i) => ({

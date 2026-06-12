@@ -14,13 +14,7 @@ import {
 } from "./core";
 import { completeSession, decideProposal, sendSessionMessage, startSession } from "./sessions";
 import { decideIntro, requestIntro, syncIntros } from "./intros";
-import {
-  approveMission,
-  cancelMission,
-  completeMission,
-  createMissionDraft,
-  updateMissionDraft,
-} from "./missions";
+import { approveMission, cancelMission, completeMission, updateMissionDraft } from "./missions";
 import { allowedEmail, devLoginEnabled, sampleFoundersEnabled } from "./access";
 
 /** Sign in as a seeded sample founder — development only (SHOW_SAMPLE_FOUNDERS=1, never in production). */
@@ -137,14 +131,6 @@ export async function requestIntroAction(formData: FormData) {
 
 /* ---------------- missions ---------------- */
 
-/** "Ask my agent": turn the owner's request into a Mission Draft for review. */
-export async function askAgentAction(formData: FormData) {
-  const user = await requireUser();
-  const mission = await createMissionDraft(user.id, String(formData.get("request") ?? ""));
-  revalidatePath("/missions");
-  redirect(`/missions/${mission.id}`);
-}
-
 export async function updateMissionDraftAction(formData: FormData) {
   const user = await requireUser();
   const missionId = String(formData.get("missionId") ?? "");
@@ -157,6 +143,7 @@ export async function updateMissionDraftAction(formData: FormData) {
     must_not_share: String(formData.get("must_not_share") ?? ""),
     approval_policy: String(formData.get("approval_policy") ?? ""),
     expected_output: String(formData.get("expected_output") ?? ""),
+    outreach_message: String(formData.get("outreach_message") ?? ""),
   });
   revalidatePath(`/missions/${missionId}`);
   redirect(`/missions/${missionId}`);
@@ -166,7 +153,9 @@ export async function approveMissionAction(formData: FormData) {
   const user = await requireUser();
   const missionId = String(formData.get("missionId") ?? "");
   const targets = formData.getAll("targets").map(String).filter(Boolean);
-  approveMission(user.id, missionId, targets);
+  approveMission(user.id, missionId, targets, {
+    outreachMessage: String(formData.get("outreach_message") ?? "") || undefined,
+  });
   revalidatePath(`/missions/${missionId}`);
   revalidatePath("/missions");
   redirect(`/missions/${missionId}`);

@@ -97,7 +97,7 @@ function ConversationEvent({ e, viewerId }: { e: SessionEvent; viewerId: string 
     return (
       <div className="mx-auto my-1.5 w-fit max-w-[85%] rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
-          ⏸ Checkpoint — owner approval required
+          ⏸ Paused — owner approval required
         </p>
         <p className="mt-1 text-xs leading-relaxed text-amber-900">{e.content}</p>
       </div>
@@ -384,7 +384,7 @@ export default async function IntroPage({ params }: { params: Promise<{ id: stri
             <Card className="p-6">
               <details>
                 <summary className="cursor-pointer text-sm font-semibold text-slate-900 marker:text-slate-300">
-                  What the agents actually said
+                  Technical details · full agent conversation
                   <span className="ml-2 text-xs font-normal text-slate-400">
                     {events.length} events · every word on the record
                   </span>

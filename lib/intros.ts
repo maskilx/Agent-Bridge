@@ -30,6 +30,7 @@ type MissionRow = MissionLike & {
   title: string;
   allowed_to_share: string;
   must_not_share: string;
+  outreach_message: string;
   status: string;
 };
 
@@ -141,7 +142,7 @@ function buildReport(opts: {
   if (!myTerms.length)
     risks.push(`Nothing in ${other.name}'s profile matches your stated criteria.`);
   if (otherAgent.must_not_share.trim())
-    risks.push(`${other.name}'s agent is withholding some information pending their approval: ${otherAgent.must_not_share.trim()}`);
+    risks.push(`${other.name}'s agent held some information back until they approve — normal at this stage.`);
 
   const missing_info: string[] = [];
   if (!otherAgent.goals.trim()) missing_info.push("They list no goals on their agent profile.");
@@ -218,24 +219,26 @@ export function requestIntro(
 
   // Mission-specific mandate (goal + share rules) overrides the static profile defaults.
   const match = mission ? scoreMissionMatch(mission, myAgent, theirAgent) : scoreMatch(myAgent, theirAgent);
-  const goal = mission ? mission.goal : myAgent.goals;
-  const lookingFor = mission ? mission.target_criteria : myAgent.looking_for;
-  const mayShare = mission ? mission.allowed_to_share : myAgent.may_share;
-  const mustNotShare = mission ? mission.must_not_share : myAgent.must_not_share;
 
-  // 1. Initiator's agent opens the session sharing only approved information.
+  // PRIVACY INVARIANT: the opening message is the ONLY thing the other side
+  // receives from this owner. For missions it is the user-approved outreach
+  // message, verbatim. It must never enumerate or hint at what is withheld —
+  // internal policy (must-not-share lists, approval rules, the raw request)
+  // stays inside AgentBridge.
+  const openingMessage = mission?.outreach_message?.trim()
+    ? mission.outreach_message.trim()
+    : `Hi — I represent ${initiator.name}, who is exploring ${summarizeFor(myAgent.goals, "relevant conversations")} ` +
+      `Some public background: ${summarizeFor(myAgent.may_share, myAgent.description || "see profile")} ` +
+      `Would ${target.name} be open to a short intro to see if there's mutual relevance?`;
+
+  // 1. Initiator's agent opens the session with the approved message only.
   const session = startSession({
     userId: initiator.id,
     withRef: target.handle,
     topic: mission
       ? `Mission outreach — ${mission.title}: ${initiator.name} ↔ ${target.name}`
-      : `Cofounder intro exploration: ${initiator.name} ↔ ${target.name}`,
-    message:
-      `Hi, I represent ${initiator.name}${mission ? ` on a specific mission: "${mission.title}"` : ""}. ` +
-      `Goal: ${summarizeFor(goal, "not specified")}. ` +
-      `Looking for: ${summarizeFor(lookingFor, "not specified")}. ` +
-      `What I can share for this conversation: ${summarizeFor(mayShare, "nothing beyond this profile")}. ` +
-      `I cannot share the following without ${initiator.name}'s approval: ${summarizeFor(mustNotShare, "n/a")}.`,
+      : `Intro exploration: ${initiator.name} ↔ ${target.name}`,
+    message: openingMessage,
   });
 
   // Named mission targets were explicitly approved by the owner, so the
@@ -260,13 +263,15 @@ export function requestIntro(
       summary: `Not relevant — ${target.name}'s agent declined (score ${match.score}/100).`,
     });
   } else {
+    // The target agent also shares ONLY its owner's allowed information — never
+    // what is being withheld.
     sendSessionMessage({
       userId: target.id,
       sessionId: session.id,
       message:
         `This looks relevant to ${target.name}'s goals${match.reverse.length ? ` (overlap on: ${match.reverse.slice(0, 6).join(", ")})` : ""}. ` +
-        `What I can share now: ${summarizeFor(theirAgent.may_share, "nothing beyond this profile")}. ` +
-        `Not shareable without ${target.name}'s approval: ${summarizeFor(theirAgent.must_not_share, "n/a")}.`,
+        `Some background I can offer: ${summarizeFor(theirAgent.may_share, "see the public profile")} ` +
+        `Happy to go deeper once both owners agree to connect.`,
     });
     sendSessionMessage({
       userId: initiator.id,
