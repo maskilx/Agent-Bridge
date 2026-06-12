@@ -14,6 +14,13 @@ import {
 } from "./core";
 import { completeSession, decideProposal, sendSessionMessage, startSession } from "./sessions";
 import { decideIntro, requestIntro, syncIntros } from "./intros";
+import {
+  approveMission,
+  cancelMission,
+  completeMission,
+  createMissionDraft,
+  updateMissionDraft,
+} from "./missions";
 import { allowedEmail, devLoginEnabled, sampleFoundersEnabled } from "./access";
 
 /** Sign in as a seeded sample founder — development only (SHOW_SAMPLE_FOUNDERS=1, never in production). */
@@ -117,9 +124,68 @@ export async function decideProposalAction(formData: FormData) {
 
 export async function requestIntroAction(formData: FormData) {
   const user = await requireUser();
-  const intro = requestIntro(user.id, String(formData.get("targetUserId") ?? ""));
+  const missionId = String(formData.get("missionId") ?? "").trim();
+  const intro = requestIntro(
+    user.id,
+    String(formData.get("targetUserId") ?? ""),
+    missionId ? { missionId } : {}
+  );
   revalidatePath("/intros");
+  if (missionId) redirect(`/missions/${missionId}`);
   redirect(`/intros/${intro.id}`);
+}
+
+/* ---------------- missions ---------------- */
+
+/** "Ask my agent": turn the owner's request into a Mission Draft for review. */
+export async function askAgentAction(formData: FormData) {
+  const user = await requireUser();
+  const mission = await createMissionDraft(user.id, String(formData.get("request") ?? ""));
+  revalidatePath("/missions");
+  redirect(`/missions/${mission.id}`);
+}
+
+export async function updateMissionDraftAction(formData: FormData) {
+  const user = await requireUser();
+  const missionId = String(formData.get("missionId") ?? "");
+  updateMissionDraft(user.id, missionId, {
+    title: String(formData.get("title") ?? ""),
+    goal: String(formData.get("goal") ?? ""),
+    context: String(formData.get("context") ?? ""),
+    target_criteria: String(formData.get("target_criteria") ?? ""),
+    allowed_to_share: String(formData.get("allowed_to_share") ?? ""),
+    must_not_share: String(formData.get("must_not_share") ?? ""),
+    approval_policy: String(formData.get("approval_policy") ?? ""),
+    expected_output: String(formData.get("expected_output") ?? ""),
+  });
+  revalidatePath(`/missions/${missionId}`);
+  redirect(`/missions/${missionId}`);
+}
+
+export async function approveMissionAction(formData: FormData) {
+  const user = await requireUser();
+  const missionId = String(formData.get("missionId") ?? "");
+  const targets = formData.getAll("targets").map(String).filter(Boolean);
+  approveMission(user.id, missionId, targets);
+  revalidatePath(`/missions/${missionId}`);
+  revalidatePath("/missions");
+  redirect(`/missions/${missionId}`);
+}
+
+export async function cancelMissionAction(formData: FormData) {
+  const user = await requireUser();
+  const missionId = String(formData.get("missionId") ?? "");
+  cancelMission(user.id, missionId);
+  revalidatePath("/missions");
+  redirect(`/missions/${missionId}`);
+}
+
+export async function completeMissionAction(formData: FormData) {
+  const user = await requireUser();
+  const missionId = String(formData.get("missionId") ?? "");
+  completeMission(user.id, missionId, String(formData.get("result_summary") ?? ""));
+  revalidatePath(`/missions/${missionId}`);
+  redirect(`/missions/${missionId}`);
 }
 
 export async function decideIntroAction(formData: FormData) {

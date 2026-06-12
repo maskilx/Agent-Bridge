@@ -495,11 +495,17 @@ server.registerTool(
       "(see list_pending_approvals / approve_checkpoint).",
     inputSchema: {
       to: z.string().describe("Target person: @handle, email, or contact name"),
+      mission_id: z
+        .string()
+        .optional()
+        .describe(
+          "Optional: run this outreach under an APPROVED mission — its mission-specific share rules and goal apply"
+        ),
     },
   },
-  async ({ to }) => {
+  async ({ to, mission_id }) => {
     try {
-      return asResult(await api("POST", `/intros`, { to }));
+      return asResult(await api("POST", `/intros`, { to, mission_id }));
     } catch (err) {
       return asError(err);
     }
@@ -518,6 +524,126 @@ server.registerTool(
   async () => {
     try {
       return asResult(await api("GET", `/intros`));
+    } catch (err) {
+      return asError(err);
+    }
+  }
+);
+
+server.registerTool(
+  "create_mission_draft",
+  {
+    description:
+      "Turn the owner's natural-language request (e.g. 'find me a GTM cofounder', 'ask Noa if she is " +
+      "open to an intro but don't share product details') into a Mission Draft: a scoped, temporary " +
+      "mandate with its own goal, target criteria, mission-specific share rules, and approval policy. " +
+      "The draft takes NO external action — review it with the owner, then approve_mission (with the " +
+      "owner's chosen targets) or cancel_mission.",
+    inputSchema: {
+      request: z.string().describe("The owner's request to their agent, in natural language"),
+    },
+  },
+  async ({ request }) => {
+    try {
+      return asResult(await api("POST", `/missions`, { request }));
+    } catch (err) {
+      return asError(err);
+    }
+  }
+);
+
+server.registerTool(
+  "list_missions",
+  {
+    description:
+      "List the owner's missions with status, mission-specific share rules, linked introductions, and " +
+      "result summaries. Statuses: awaiting_user_approval (review the draft with the owner), running, " +
+      "waiting_for_external_agent, waiting_for_user (an intro checkpoint needs the owner), completed, " +
+      "cancelled, rejected.",
+    inputSchema: {},
+  },
+  async () => {
+    try {
+      return asResult(await api("GET", `/missions`));
+    } catch (err) {
+      return asError(err);
+    }
+  }
+);
+
+server.registerTool(
+  "get_mission",
+  {
+    description: "Get one mission with its full draft fields, linked introductions, and result summary.",
+    inputSchema: { mission_id: z.string().describe("The mission id, e.g. 'mis_a1b2c3'") },
+  },
+  async ({ mission_id }) => {
+    try {
+      return asResult(await api("GET", `/missions/${encodeURIComponent(mission_id)}`));
+    } catch (err) {
+      return asError(err);
+    }
+  }
+);
+
+server.registerTool(
+  "list_mission_matches",
+  {
+    description:
+      "Rank candidate agents for a specific mission (named targets pinned first), with a match score, " +
+      "why each fits the mission, and caveats. Use before approve_mission to pick targets with the owner.",
+    inputSchema: { mission_id: z.string().describe("The mission id") },
+  },
+  async ({ mission_id }) => {
+    try {
+      return asResult(await api("GET", `/missions/${encodeURIComponent(mission_id)}/matches`));
+    } catch (err) {
+      return asError(err);
+    }
+  }
+);
+
+server.registerTool(
+  "approve_mission",
+  {
+    description:
+      "Approve a mission draft ON THE OWNER'S EXPLICIT INSTRUCTION and launch outreach to the given " +
+      "targets (max 5). Each outreach runs through the standard introduction flow: mission-specific " +
+      "share rules, relevance check by the counterpart agent, structured reports, and approval " +
+      "checkpoints before any contact details are exchanged. Only call this after the owner has " +
+      "reviewed the draft and named the targets.",
+    inputSchema: {
+      mission_id: z.string().describe("The mission id"),
+      targets: z
+        .array(z.string())
+        .describe("Targets to contact: @handles from list_mission_matches (owner-approved)"),
+    },
+  },
+  async ({ mission_id, targets }) => {
+    try {
+      return asResult(
+        await api("POST", `/missions/${encodeURIComponent(mission_id)}/decide`, {
+          decision: "approved",
+          targets,
+        })
+      );
+    } catch (err) {
+      return asError(err);
+    }
+  }
+);
+
+server.registerTool(
+  "cancel_mission",
+  {
+    description: "Reject a mission draft or cancel an active mission. No further outreach will happen for it.",
+    inputSchema: { mission_id: z.string().describe("The mission id") },
+  },
+  async ({ mission_id }) => {
+    try {
+      return asResult(
+        await api("POST", `/missions/${encodeURIComponent(mission_id)}/decide`, { decision: "cancelled" })
+      );
     } catch (err) {
       return asError(err);
     }

@@ -3,12 +3,15 @@ import { requireUser } from "@/lib/auth";
 import { logout } from "@/lib/actions";
 import { getAgentForUser, listIncoming } from "@/lib/core";
 import { listIntros, waitingOn } from "@/lib/intros";
+import { listMissions, missionNeedsOwner } from "@/lib/missions";
 import { Avatar, Logo, ProviderBadge } from "@/components/ui";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
-  { href: "/matches", label: "Matches", icon: "⌖" },
+  { href: "/ask", label: "Ask my agent", icon: "✳" },
+  { href: "/missions", label: "Missions", icon: "🎯" },
   { href: "/intros", label: "Introductions", icon: "⇄" },
+  { href: "/matches", label: "Matches", icon: "⌖" },
   { href: "/inbox", label: "Inbox", icon: "✉" },
   { href: "/sessions", label: "Sessions", icon: "◉" },
   { href: "/contacts", label: "Contacts", icon: "☎" },
@@ -21,6 +24,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const agent = getAgentForUser(user.id);
   const pendingCount = listIncoming(user.id, true).length;
   const introCount = listIntros(user.id).filter((i) => waitingOn(i, user.id)).length;
+  const missionCount = listMissions(user.id).filter(
+    (m) => missionNeedsOwner(m) && m.status !== "waiting_for_user"
+  ).length;
 
   return (
     <div className="flex min-h-screen w-full">
@@ -47,6 +53,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {item.href === "/intros" && introCount > 0 && (
                 <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
                   {introCount}
+                </span>
+              )}
+              {item.href === "/missions" && missionCount > 0 && (
+                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
+                  {missionCount}
                 </span>
               )}
             </Link>

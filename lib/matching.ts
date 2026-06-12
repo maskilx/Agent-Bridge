@@ -81,3 +81,62 @@ export function listMatches(viewerUserId: string, viewerAgent: Agent): Match[] {
   });
   return matches.sort((a, b) => b.score - a.score);
 }
+
+/* ---------------- mission-specific matching ---------------- */
+
+/** The mission fields relevance is computed from (kept structural to avoid a module cycle). */
+export type MissionLike = {
+  user_request: string;
+  goal: string;
+  context: string;
+  target_criteria: string;
+  target_agent_ids: string; // JSON array of user ids
+};
+
+export function missionTokens(mission: MissionLike): Set<string> {
+  return tokenize([mission.target_criteria, mission.goal, mission.user_request].join(" "));
+}
+
+/** Score one candidate against a MISSION (not the static profile). */
+export function scoreMissionMatch(mission: MissionLike, mine: Agent, theirs: Agent): MatchScore {
+  const needs = missionTokens(mission);
+  const theirNeeds = tokenize(theirs.looking_for);
+  const myContext = new Set([...profileTokens(mine), ...tokenize(mission.goal + " " + mission.context)]);
+  const forward = [...needs].filter((t) => profileTokens(theirs).has(t));
+  const reverse = [...theirNeeds].filter((t) => myContext.has(t));
+  const mutualBonus = forward.length >= 2 && reverse.length >= 2 ? 15 : 0;
+  const score = Math.min(100, forward.length * 8 + reverse.length * 6 + mutualBonus);
+  return { score, forward, reverse };
+}
+
+export type MissionMatch = Match & {
+  /** Explicitly named in the mission — always surfaced first. */
+  named: boolean;
+  /** One-sentence explanation of why this target fits the mission. */
+  fit: string;
+  /** Risks / missing info for this target, mission-specific. */
+  caveats: string[];
+};
+
+/** Candidates ranked for a specific mission: named targets first, then by mission relevance. */
+export function listMissionMatches(viewerUserId: string, viewerAgent: Agent, mission: MissionLike): MissionMatch[] {
+  const namedIds = new Set<string>(JSON.parse(mission.target_agent_ids || "[]") as string[]);
+  const base = listMatches(viewerUserId, viewerAgent);
+
+  const ranked: MissionMatch[] = base.map((m) => {
+    const { score, forward, reverse } = scoreMissionMatch(mission, viewerAgent, m.agent);
+    const named = namedIds.has(m.user.id);
+    const caveats: string[] = [];
+    if (!reverse.length)
+      caveats.push(`Nothing in this mission obviously matches what ${m.user.name} says they're looking for.`);
+    if (!m.agent.looking_for.trim()) caveats.push("They don't state what they're looking for.");
+    const fit = named
+      ? `Explicitly named in your request.`
+      : forward.length
+        ? `Their profile matches the mission on: ${forward.slice(0, 6).join(", ")}.`
+        : `No clear overlap with the mission criteria.`;
+    return { ...m, score, forward, reverse, named, fit, caveats };
+  });
+
+  return ranked.sort((a, b) => Number(b.named) - Number(a.named) || b.score - a.score);
+}

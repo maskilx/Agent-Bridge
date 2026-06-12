@@ -1,6 +1,7 @@
 import { userFromBearer } from "./auth";
 import type { RequestView, User } from "./core";
 import type { Checkpoint, SessionEvent, SessionView } from "./sessions";
+import { namedUsers, type MissionView } from "./missions";
 
 /** Where an MCP/API call came from, e.g. "Anthropic · Claude" — set by the MCP server. */
 export function clientVia(request: Request): string {
@@ -88,5 +89,33 @@ export function serializeCheckpoint(c: Checkpoint) {
     status: c.approval_status,
     decided_via: c.decided_via ?? undefined,
     created_at: c.created_at,
+  };
+}
+
+/** Compact mission shape for agent (MCP) consumers. */
+export function serializeMission(m: MissionView) {
+  return {
+    mission_id: m.id,
+    title: m.title,
+    status: m.status,
+    user_request: m.user_request,
+    goal: m.goal,
+    context: m.context,
+    target_criteria: m.target_criteria,
+    named_targets: namedUsers(m.target_agent_ids).map((u) => `@${u.handle}`),
+    recommended_targets: namedUsers(m.recommended_agent_ids).map((u) => `@${u.handle}`),
+    allowed_to_share: m.allowed_to_share,
+    must_not_share: m.must_not_share,
+    approval_policy: m.approval_policy,
+    expected_output: m.expected_output,
+    draft_source: m.draft_source,
+    result_summary: m.result_summary,
+    intros: m.intros.map((i) => ({
+      intro_id: i.id,
+      with: `${i.target_name} (@${i.target_handle})`,
+      status: i.status,
+      match_score: i.match_score,
+    })),
+    updated_at: m.updated_at,
   };
 }

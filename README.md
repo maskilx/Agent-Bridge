@@ -42,24 +42,39 @@ with. Set `SHOW_SAMPLE_FOUNDERS=1` to also get one-click sign-in as them on the 
   bypass it. **See [DEPLOYMENT.md](./DEPLOYMENT.md)** for the full private-deployment
   guide (hosting, env vars, Google OAuth, Cloudflare Access, allowlists).
 
-## The core loop (cofounder / collaboration matching)
+## The core loop: missions
 
-1. **Sign in** → first-time users are taken to **agent setup**.
-2. **Define your agent** (`/agent`): identity & visibility, goals, responsibilities,
-   what you're looking for, what the agent **may share**, what it **must never share**,
-   and when it must **ask your approval**.
-3. **Matches** (`/matches`): other agents scored 0–100 by transparent keyword overlap
-   between your "looking for" and their profile (both directions).
-4. **"Have my agent reach out"** — your agent opens a session with theirs and shares
-   *only* your pre-approved information, stating its boundaries explicitly.
-5. **The receiving agent checks relevance** against its own owner's criteria. An
-   irrelevant request is declined politely **without ever involving the other owner**.
-6. **You get a structured report** (`/intros/<id>`): summary, why it may be relevant,
-   risks, missing information, recommendation, and a proposed next step.
-7. **Two-stage approval**: you approve sharing your contact details first; then the other
-   owner approves on their side. Only after **both** approvals are emails exchanged and
-   contacts created. Either side can reject; the other side sees only the outcome.
-8. **Full audit trail**: every message, proposal, and decision is on the session timeline.
+The **agent profile** is your stable identity and default boundaries. A **mission** is what
+you want *right now* — a temporary, scoped mandate your agent drafts from a natural request:
+
+1. **Sign in** → first-time users are taken to **agent setup** (`/agent`): identity,
+   goals, what the agent **may share**, what it **must never share**, and when it must
+   **ask your approval**. These are the defaults every mission starts from.
+2. **Ask your agent** (dashboard or `/ask`): *"Find me a GTM cofounder"*, *"Ask Noa if
+   she's open to an intro, but don't share product details"*, *"Find someone to give
+   feedback on pricing"*.
+3. **Mission Draft** (`/missions/<id>`): your agent turns the request into a draft —
+   title, goal, context, target criteria, mission-specific may-share / must-not-share,
+   approval policy, expected output, recommended targets. **Nothing external happens at
+   this stage.** Drafting uses an LLM when `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` is set
+   (adapter in `lib/model.ts` — the model only drafts, never acts), otherwise a
+   transparent rule-based drafter.
+4. **You approve, edit, or discard** the draft — and pick exactly who the agent may
+   contact (named targets and mission-ranked matches, max 5).
+5. **Execution** runs on the existing introduction engine, now mission-scoped: outreach
+   shares only the mission's allowed information and states its boundaries; the receiving
+   agent checks relevance against *its* owner's criteria and declines irrelevant requests
+   without involving them.
+6. **You get a structured report** per target (`/intros/<id>`): summary, match reasons,
+   risks, missing information, recommendation, next step.
+7. **Two-stage approval** before anything sensitive: you approve sharing contact details,
+   then the other owner approves on their side. Only after **both** approvals are emails
+   exchanged and contacts created.
+8. **Results & audit trail**: intro outcomes roll up into the mission's status and result
+   summary; every message, proposal, and decision stays on the session timeline.
+
+Profile-based matching (`/matches`) and direct introductions still work — missions sit on
+top of them as the main way to task your agent.
 
 ## MCP — drive your agent with a real model
 
@@ -71,10 +86,17 @@ agent's brain:
 // env: AGENTBRIDGE_URL=http://localhost:3001  AGENTBRIDGE_TOKEN=<your token from /agent>
 ```
 
+- `create_mission_draft` / `list_missions` / `get_mission` / `list_mission_matches` /
+  `approve_mission` / `cancel_mission` — the full mission flow (drafts are reviewed with
+  the owner; approval requires the owner's explicit instruction)
 - `list_matches` — scored candidates for this user
-- `request_introduction` — run the structured outreach + report flow
+- `request_introduction` — structured outreach (optionally under a mission's rules)
 - `list_introductions` — statuses, reports, and pending checkpoint ids
 - …plus 18 more tools (requests, sessions, approvals incl. `approve_checkpoint`).
+
+AgentBridge stays the **source of truth** — identity, profile, missions, permissions,
+approvals, and the audit trail all live here. The web chat and MCP clients (Claude Code,
+Codex, future agents) are interchangeable interfaces over the same mission system.
 
 Approvals made from an MCP client advance the intro flow exactly like the web UI, and the
 audit trail records *where* each decision was made (e.g. "via Anthropic · Claude").

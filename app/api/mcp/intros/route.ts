@@ -41,7 +41,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const to = String(body.to ?? "");
     if (!to.trim()) throw new Error("'to' is required (handle, email, or user id).");
-    const intro = requestIntro(auth.id, to);
+    const missionId = String(body.mission_id ?? "").trim();
+    const intro = requestIntro(auth.id, to, missionId ? { missionId } : {});
     return Response.json({ intro: serializeIntro(intro, auth.id) });
   } catch (err) {
     return jsonError(err);

@@ -15,7 +15,23 @@ import {
   startSession,
   type SessionEvent,
 } from "./sessions";
-import { RELEVANCE_THRESHOLD, scoreMatch, type MatchScore } from "./matching";
+import {
+  RELEVANCE_THRESHOLD,
+  scoreMatch,
+  scoreMissionMatch,
+  type MatchScore,
+  type MissionLike,
+} from "./matching";
+
+/** Mission row fields the intro flow needs (read directly to avoid a module cycle with missions.ts). */
+type MissionRow = MissionLike & {
+  id: string;
+  owner_user_id: string;
+  title: string;
+  allowed_to_share: string;
+  must_not_share: string;
+  status: string;
+};
 
 /**
  * Structured agent-to-agent introductions — the V1 core loop.
@@ -57,6 +73,7 @@ export type Intro = {
   report_for_target: string;
   initiator_checkpoint_id: number | null;
   target_checkpoint_id: number | null;
+  mission_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -101,6 +118,8 @@ function buildReport(opts: {
   /** terms relevant from this owner's perspective */
   myTerms: string[];
   theirTerms: string[];
+  /** present when this exchange executes a mission */
+  missionTitle?: string;
 }): IntroReport {
   const { owner, other, otherAgent, match, myTerms, theirTerms } = opts;
 
@@ -140,8 +159,10 @@ function buildReport(opts: {
 
   return {
     summary:
-      `Your agent and ${other.name}'s agent held a limited exchange (match score ${match.score}/100). ` +
-      `Only pre-approved profile information was shared; no contact details were exchanged. ` +
+      (opts.missionTitle
+        ? `On the mission "${opts.missionTitle}", your agent and ${other.name}'s agent held a limited exchange (match score ${match.score}/100). `
+        : `Your agent and ${other.name}'s agent held a limited exchange (match score ${match.score}/100). `) +
+      `Only pre-approved information was shared; no contact details were exchanged. ` +
       `${other.name}: ${summarizeFor(otherAgent.description, "no description provided")}`,
     match_reasons,
     risks,
@@ -151,12 +172,30 @@ function buildReport(opts: {
   };
 }
 
+function getMissionForOutreach(missionId: string, initiatorUserId: string): MissionRow {
+  const mission = db().prepare("SELECT * FROM missions WHERE id = ?").get(missionId) as
+    | MissionRow
+    | undefined;
+  if (!mission) throw new Error(`Mission ${missionId} not found.`);
+  if (mission.owner_user_id !== initiatorUserId)
+    throw new Error("You can only run outreach for your own missions.");
+  if (!["approved", "running", "waiting_for_external_agent", "waiting_for_user"].includes(mission.status))
+    throw new Error(`Mission ${missionId} is not approved for outreach (status: ${mission.status}).`);
+  return mission;
+}
+
 /** Owner A's agent reaches out to owner B's agent and runs the bounded exchange. */
-export function requestIntro(initiatorUserId: string, targetRef: string): IntroView {
+export function requestIntro(
+  initiatorUserId: string,
+  targetRef: string,
+  opts: { missionId?: string } = {}
+): IntroView {
   const initiator = getUserById(initiatorUserId)!;
   const target = resolveRecipient(initiatorUserId, targetRef);
   if (!target) throw new Error(`No registered agent found for "${targetRef}".`);
   if (target.id === initiator.id) throw new Error("Your agent cannot introduce you to yourself.");
+  // Missions are the owner's approved mandate: outreach only runs for approved missions.
+  const mission = opts.missionId ? getMissionForOutreach(opts.missionId, initiatorUserId) : null;
 
   const existing = db()
     .prepare(
@@ -174,25 +213,37 @@ export function requestIntro(initiatorUserId: string, targetRef: string): IntroV
 
   const myAgent = getAgentForUser(initiator.id);
   const theirAgent = getAgentForUser(target.id);
-  if (!myAgent.looking_for.trim() && !myAgent.goals.trim())
+  if (!mission && !myAgent.looking_for.trim() && !myAgent.goals.trim())
     throw new Error("Set your agent's goals and what you're looking for before reaching out.");
 
-  const match = scoreMatch(myAgent, theirAgent);
+  // Mission-specific mandate (goal + share rules) overrides the static profile defaults.
+  const match = mission ? scoreMissionMatch(mission, myAgent, theirAgent) : scoreMatch(myAgent, theirAgent);
+  const goal = mission ? mission.goal : myAgent.goals;
+  const lookingFor = mission ? mission.target_criteria : myAgent.looking_for;
+  const mayShare = mission ? mission.allowed_to_share : myAgent.may_share;
+  const mustNotShare = mission ? mission.must_not_share : myAgent.must_not_share;
 
   // 1. Initiator's agent opens the session sharing only approved information.
   const session = startSession({
     userId: initiator.id,
     withRef: target.handle,
-    topic: `Cofounder intro exploration: ${initiator.name} ↔ ${target.name}`,
+    topic: mission
+      ? `Mission outreach — ${mission.title}: ${initiator.name} ↔ ${target.name}`
+      : `Cofounder intro exploration: ${initiator.name} ↔ ${target.name}`,
     message:
-      `Hi, I represent ${initiator.name}. ` +
-      `Goal: ${summarizeFor(myAgent.goals, "not specified")}. ` +
-      `Looking for: ${summarizeFor(myAgent.looking_for, "not specified")}. ` +
-      `What I can share now: ${summarizeFor(myAgent.may_share, "nothing beyond this profile")}. ` +
-      `I cannot share the following without ${initiator.name}'s approval: ${summarizeFor(myAgent.must_not_share, "n/a")}.`,
+      `Hi, I represent ${initiator.name}${mission ? ` on a specific mission: "${mission.title}"` : ""}. ` +
+      `Goal: ${summarizeFor(goal, "not specified")}. ` +
+      `Looking for: ${summarizeFor(lookingFor, "not specified")}. ` +
+      `What I can share for this conversation: ${summarizeFor(mayShare, "nothing beyond this profile")}. ` +
+      `I cannot share the following without ${initiator.name}'s approval: ${summarizeFor(mustNotShare, "n/a")}.`,
   });
 
-  const relevant = match.score >= RELEVANCE_THRESHOLD;
+  // Named mission targets were explicitly approved by the owner, so the
+  // counterpart agent still evaluates them, but borderline scores get through.
+  const namedTarget = mission
+    ? (JSON.parse(mission.target_agent_ids || "[]") as string[]).includes(target.id)
+    : false;
+  const relevant = match.score >= RELEVANCE_THRESHOLD || namedTarget;
 
   // 2. Target's agent checks relevance against its OWN owner's criteria.
   if (!relevant) {
@@ -235,6 +286,7 @@ export function requestIntro(initiatorUserId: string, targetRef: string): IntroV
     match,
     myTerms: match.forward,
     theirTerms: match.reverse,
+    missionTitle: mission?.title,
   });
   const reportForTarget = buildReport({
     owner: target,
@@ -265,8 +317,8 @@ export function requestIntro(initiatorUserId: string, targetRef: string): IntroV
   db()
     .prepare(
       `INSERT INTO intros (id, initiator_user_id, target_user_id, session_id, status, match_score,
-                           report_for_initiator, report_for_target, initiator_checkpoint_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                           report_for_initiator, report_for_target, initiator_checkpoint_id, mission_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -277,7 +329,8 @@ export function requestIntro(initiatorUserId: string, targetRef: string): IntroV
       match.score,
       JSON.stringify(reportForInitiator),
       JSON.stringify(reportForTarget),
-      initiatorCheckpointId
+      initiatorCheckpointId,
+      mission?.id ?? null
     );
   return getIntroById(id)!;
 }
@@ -408,6 +461,14 @@ export function listIntros(userId: string): IntroView[] {
   return db()
     .prepare(`${INTRO_SELECT} WHERE i.initiator_user_id = ? OR i.target_user_id = ? ORDER BY i.updated_at DESC`)
     .all(userId, userId) as IntroView[];
+}
+
+/** All intros launched by a mission (execution trail). */
+export function listIntrosByMission(missionId: string): IntroView[] {
+  syncIntros();
+  return db()
+    .prepare(`${INTRO_SELECT} WHERE i.mission_id = ? ORDER BY i.updated_at DESC`)
+    .all(missionId) as IntroView[];
 }
 
 export function getIntroView(userId: string, id: string): IntroView {

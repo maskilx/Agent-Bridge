@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { decideIntroAction } from "@/lib/actions";
 import { getIntroView, reportFor, waitingOn, type IntroView } from "@/lib/intros";
+import { getMissionView } from "@/lib/missions";
 import { getAgentForUser } from "@/lib/core";
 import { getSessionEvents, type SessionEvent } from "@/lib/sessions";
 import { scoreMatch } from "@/lib/matching";
@@ -181,6 +182,17 @@ export default async function IntroPage({ params }: { params: Promise<{ id: stri
     (intro.status === "awaiting_initiator_approval" && !mine) ||
     (intro.status === "awaiting_target_approval" && mine);
 
+  // If this intro executes one of the viewer's missions, link back to it.
+  let mission: { id: string; title: string } | null = null;
+  if (intro.mission_id) {
+    try {
+      const m = getMissionView(user.id, intro.mission_id);
+      mission = { id: m.id, title: m.title };
+    } catch {
+      mission = null; // the mission belongs to the other side — not the viewer's to see
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -191,12 +203,22 @@ export default async function IntroPage({ params }: { params: Promise<{ id: stri
             : `${otherName}'s agent reached out — your agent evaluated it against your criteria.`
         }
         action={
-          <Link
-            href="/intros"
-            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
-          >
-            ← All introductions
-          </Link>
+          <span className="flex items-center gap-2">
+            {mission && (
+              <Link
+                href={`/missions/${mission.id}`}
+                className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-100"
+              >
+                🎯 Mission: {mission.title}
+              </Link>
+            )}
+            <Link
+              href="/intros"
+              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
+            >
+              ← All introductions
+            </Link>
+          </span>
         }
       />
 

@@ -140,6 +140,31 @@ function migrate(d: Database.Database) {
       report_for_target TEXT NOT NULL DEFAULT '{}', -- JSON IntroReport
       initiator_checkpoint_id INTEGER REFERENCES session_events(id),
       target_checkpoint_id INTEGER REFERENCES session_events(id),
+      mission_id TEXT REFERENCES missions(id), -- set when the intro executes a mission
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS missions (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL REFERENCES users(id),
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      title TEXT NOT NULL,
+      user_request TEXT NOT NULL, -- the owner's original natural-language request
+      goal TEXT NOT NULL DEFAULT '',
+      context TEXT NOT NULL DEFAULT '',
+      target_criteria TEXT NOT NULL DEFAULT '', -- who the agent should look for
+      target_agent_ids TEXT NOT NULL DEFAULT '[]', -- JSON user ids of explicitly named targets
+      allowed_to_share TEXT NOT NULL DEFAULT '', -- mission-specific share scope
+      must_not_share TEXT NOT NULL DEFAULT '', -- mission-specific boundaries
+      approval_policy TEXT NOT NULL DEFAULT '',
+      expected_output TEXT NOT NULL DEFAULT '',
+      recommended_agent_ids TEXT NOT NULL DEFAULT '[]', -- JSON user ids the drafter recommends
+      draft_source TEXT NOT NULL DEFAULT 'rules', -- rules | anthropic | openai
+      status TEXT NOT NULL DEFAULT 'awaiting_user_approval',
+      -- draft | awaiting_user_approval | approved | running | waiting_for_external_agent
+      -- | waiting_for_user | completed | cancelled | rejected
+      result_summary TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -169,6 +194,10 @@ function migrate(d: Database.Database) {
   ]) {
     if (!agentCols.includes(col)) d.exec(`ALTER TABLE agents ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
   }
+
+  // additive migration for databases created before missions
+  const introCols = (d.prepare("PRAGMA table_info(intros)").all() as { name: string }[]).map((c) => c.name);
+  if (!introCols.includes("mission_id")) d.exec("ALTER TABLE intros ADD COLUMN mission_id TEXT");
 }
 
 // Sample founders so a freshly signed-in user immediately has agents to match with.
