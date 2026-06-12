@@ -36,5 +36,9 @@ export function userFromBearer(request: Request): User | null {
   const header = request.headers.get("authorization") ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
-  return getUserByToken(match[1].trim()) ?? null;
+  const user = getUserByToken(match[1].trim()) ?? null;
+  // Same second-layer allowlist as cookie sessions — keeps the publicly-known
+  // sample-founder seed tokens (and revoked users) out of the production API.
+  if (user && !emailMayUseApp(user.email)) return null;
+  return user;
 }
