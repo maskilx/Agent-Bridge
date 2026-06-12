@@ -320,7 +320,7 @@ export default async function IntroPage({ params }: { params: Promise<{ id: stri
                       type="submit"
                       name="decision"
                       value="approved"
-                      className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                      className="rounded-xl bg-teal-700 hover:bg-teal-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
                     >
                       {mine ? "Approve & request introduction" : "Approve & exchange contact details"}
                     </button>

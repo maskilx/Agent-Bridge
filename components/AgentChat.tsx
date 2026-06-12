@@ -59,55 +59,70 @@ const mid = () => nextId++;
 
 /* ------------------------------------------------------------- primitives */
 
-function AgentAvatar() {
+function AgentMark({ size = "md" }: { size?: "md" | "lg" }) {
+  const cls = size === "lg" ? "h-12 w-12 rounded-2xl text-lg" : "h-7 w-7 rounded-[9px] text-[13px]";
   return (
-    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-emerald-500 text-sm font-semibold text-white shadow-sm">
+    <span
+      className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-teal-600 to-emerald-600 text-white shadow-[0_2px_8px_rgba(42,117,96,0.35)] ${cls}`}
+    >
       ✦
     </span>
   );
 }
 
-function AgentBubble({ children }: { children: React.ReactNode }) {
+/** Agent turns read like a considered reply — open text beside the mark, no box. */
+function AgentTurn({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <AgentAvatar />
-      <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-slate-200/80 bg-white px-4 py-3 text-[15px] leading-relaxed text-slate-700 shadow-sm">
+    <div className="msg-in flex items-start gap-3.5">
+      <span className="mt-0.5">
+        <AgentMark />
+      </span>
+      <div className="min-w-0 max-w-[88%] pt-0.5 text-[15px] leading-7 text-slate-700">{children}</div>
+    </div>
+  );
+}
+
+/** Cards hang from the agent's column, aligned under its replies. */
+function AgentCard({
+  children,
+  accent = "border-slate-200/70",
+  className = "",
+}: {
+  children: React.ReactNode;
+  accent?: string;
+  className?: string;
+}) {
+  return (
+    <div className="msg-in flex items-start gap-3.5">
+      <span className="w-7 shrink-0" />
+      <div
+        className={`w-full max-w-[88%] overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(29,27,23,0.04),0_16px_40px_-20px_rgba(29,27,23,0.14)] ${accent} ${className}`}
+      >
         {children}
       </div>
     </div>
   );
 }
 
-function CardShell({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "warm" | "good" | "muted" }) {
-  const toneCls =
-    tone === "warm"
-      ? "border-amber-200 bg-amber-50/30"
-      : tone === "good"
-        ? "border-emerald-200 bg-emerald-50/30"
-        : tone === "muted"
-          ? "border-slate-200 bg-slate-50/60"
-          : "border-slate-200 bg-white";
+function Eyebrow({ children, tone = "text-teal-700" }: { children: React.ReactNode; tone?: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="w-8 shrink-0" />
-      <div className={`w-full max-w-[85%] rounded-2xl border p-5 shadow-sm ${toneCls}`}>{children}</div>
-    </div>
+    <p className={`text-[10.5px] font-bold uppercase tracking-[0.16em] ${tone}`}>{children}</p>
   );
 }
 
 function Typing() {
   return (
-    <AgentBubble>
-      <span className="flex items-center gap-1.5 py-1">
+    <AgentTurn>
+      <span className="flex items-center gap-1.5 py-2">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="h-2 w-2 animate-bounce rounded-full bg-slate-300"
+            className="h-[7px] w-[7px] animate-bounce rounded-full bg-slate-300"
             style={{ animationDelay: `${i * 0.15}s` }}
           />
         ))}
       </span>
-    </AgentBubble>
+    </AgentTurn>
   );
 }
 
@@ -123,9 +138,7 @@ function DraftCard({
   onCancel: () => void;
 }) {
   const m = msg.mission;
-  const defaults = new Set(
-    m.candidates.filter((c) => c.named || c.recommended).map((c) => c.user_id)
-  );
+  const defaults = new Set(m.candidates.filter((c) => c.named || c.recommended).map((c) => c.user_id));
   if (defaults.size === 0) {
     for (const c of m.candidates) {
       if (defaults.size >= 1) break;
@@ -146,121 +159,138 @@ function DraftCard({
     });
 
   return (
-    <CardShell tone={msg.state === "cancelled" ? "muted" : "default"}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-teal-700">Mission draft</p>
+    <AgentCard accent={msg.state === "cancelled" ? "border-slate-200/70 opacity-70" : "border-teal-700/15"}>
+      {/* header */}
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-b from-teal-50/40 to-transparent px-6 pb-4 pt-5">
+        <div>
+          <Eyebrow>Mission · ready for review</Eyebrow>
+          <h3 className="mt-1 font-display text-[19px] font-medium leading-snug tracking-tight text-slate-900">
+            {m.title}
+          </h3>
+        </div>
         {msg.state === "approved" && (
-          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Approved ✓</span>
+          <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+            Approved ✓
+          </span>
         )}
         {msg.state === "cancelled" && (
-          <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-500">Discarded</span>
-        )}
-      </div>
-      <h3 className="mt-1.5 text-base font-semibold text-slate-900">{m.title}</h3>
-      <p className="mt-1 text-sm leading-relaxed text-slate-600">{m.goal}</p>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-emerald-50/70 p-3.5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Will share</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{m.allowed_to_share}</p>
-        </div>
-        <div className="rounded-xl bg-rose-50/60 p-3.5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-rose-600">
-            Stays private <span className="font-normal normal-case text-rose-400">· only you see this</span>
-          </p>
-          <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{m.must_not_share}</p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-            The exact message the other agent receives — nothing else
-          </p>
-          {!locked && (
-            <button
-              onClick={() => setEditing((e) => !e)}
-              className="text-xs font-semibold text-teal-700 hover:text-teal-900"
-            >
-              {editing ? "Done" : "Edit message"}
-            </button>
-          )}
-        </div>
-        {editing && !locked ? (
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={4}
-            className="mt-1.5 w-full rounded-xl border border-teal-300 px-3.5 py-2.5 text-sm leading-relaxed text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100"
-          />
-        ) : (
-          <blockquote className="mt-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm italic leading-relaxed text-slate-700">
-            “{message}”
-          </blockquote>
+          <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+            Discarded
+          </span>
         )}
       </div>
 
-      {m.candidates.length > 0 && (
-        <div className="mt-4">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Send to</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {m.candidates.map((c) => {
-              const on = selected.has(c.user_id);
-              return (
-                <button
-                  key={c.user_id}
-                  disabled={locked}
-                  onClick={() => toggle(c.user_id)}
-                  title={c.fit}
-                  className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition disabled:opacity-60 ${
-                    on
-                      ? "border-teal-500 bg-teal-50 text-teal-800"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                  }`}
-                >
-                  <span className={`text-xs ${on ? "text-teal-600" : "text-slate-300"}`}>{on ? "✓" : "+"}</span>
-                  {c.name}
-                  {c.named && <span className="text-[10px] text-teal-600">(named)</span>}
-                  <span className="text-xs text-slate-400">{c.score}</span>
-                </button>
-              );
-            })}
+      <div className="space-y-5 px-6 py-5">
+        <p className="text-[14px] leading-relaxed text-slate-600">{m.goal}</p>
+
+        {/* boundaries */}
+        <div className="grid gap-px overflow-hidden rounded-xl border border-slate-200/70 bg-slate-200/70 sm:grid-cols-2">
+          <div className="bg-white px-4 py-3.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+              <span className="text-[8px]">●</span> Will share
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600">{m.allowed_to_share}</p>
+          </div>
+          <div className="bg-white px-4 py-3.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+              <span className="text-[8px]">○</span> Stays private
+              <span className="font-medium normal-case tracking-normal text-slate-400">· only you see this</span>
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600">{m.must_not_share}</p>
           </div>
         </div>
-      )}
 
+        {/* the message */}
+        <div>
+          <div className="flex items-center justify-between">
+            <Eyebrow tone="text-slate-400">The exact message the other agent receives</Eyebrow>
+            {!locked && (
+              <button
+                onClick={() => setEditing((e) => !e)}
+                className="text-xs font-semibold text-teal-700 transition hover:text-teal-900"
+              >
+                {editing ? "Done editing" : "Edit"}
+              </button>
+            )}
+          </div>
+          {editing && !locked ? (
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={4}
+              className="mt-2 w-full rounded-xl border border-teal-600/40 px-4 py-3 text-[14px] leading-relaxed text-slate-800 focus:outline-none focus:ring-4 focus:ring-teal-600/10"
+            />
+          ) : (
+            <blockquote className="mt-2 border-l-2 border-teal-600/70 py-0.5 pl-4 font-display text-[15px] italic leading-relaxed text-slate-700">
+              “{message}”
+            </blockquote>
+          )}
+          <p className="mt-2 text-[12px] text-slate-400">
+            Your boundaries and notes are never sent — only this message.
+          </p>
+        </div>
+
+        {/* targets */}
+        {m.candidates.length > 0 && (
+          <div>
+            <Eyebrow tone="text-slate-400">Send to</Eyebrow>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {m.candidates.map((c) => {
+                const on = selected.has(c.user_id);
+                return (
+                  <button
+                    key={c.user_id}
+                    disabled={locked}
+                    onClick={() => toggle(c.user_id)}
+                    title={c.fit}
+                    className={`flex items-center gap-2 rounded-full border px-3.5 py-[7px] text-[13.5px] font-medium transition-all duration-150 disabled:opacity-60 ${
+                      on
+                        ? "border-teal-700/60 bg-teal-700 text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    {c.name}
+                    {c.named && (
+                      <span className={`text-[10px] font-semibold uppercase tracking-wide ${on ? "text-teal-200" : "text-teal-700"}`}>
+                        named
+                      </span>
+                    )}
+                    <span className={`font-mono text-[11px] ${on ? "text-teal-100" : "text-slate-400"}`}>{c.score}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* footer */}
       {!locked && (
-        <div className="mt-5 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
           <button
             onClick={() => onApprove([...selected], message)}
             disabled={selected.size === 0}
-            className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
+            className="rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(34,92,77,0.35)] transition-all duration-150 hover:bg-teal-800 hover:shadow-[0_3px_12px_rgba(34,92,77,0.4)] disabled:opacity-40 disabled:shadow-none"
           >
             Approve &amp; send
           </button>
           <Link
             href={`/missions/${m.id}`}
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-teal-300 hover:text-teal-800"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
           >
             Edit details
           </Link>
-          <button
-            onClick={onCancel}
-            className="text-sm font-semibold text-slate-400 transition hover:text-rose-600"
-          >
+          <button onClick={onCancel} className="px-1 text-sm font-medium text-slate-400 transition hover:text-rose-600">
             Cancel
           </button>
-          {selected.size === 0 && m.candidates.length > 0 && (
-            <span className="text-xs text-slate-400">Pick at least one person to contact</span>
-          )}
+          <span className="ml-auto hidden text-[12px] text-slate-400 sm:block">
+            {selected.size === 0 && m.candidates.length > 0
+              ? "Pick at least one person"
+              : "Nothing is sent until you approve"}
+          </span>
         </div>
       )}
-      {!locked && (
-        <p className="mt-3 text-xs text-slate-400">
-          Nothing is sent until you approve. Contact details stay locked until both sides agree.
-        </p>
-      )}
-    </CardShell>
+    </AgentCard>
   );
 }
 
@@ -268,43 +298,56 @@ function DraftCard({
 
 function ActivityCard({ msg }: { msg: Extract<Msg, { type: "activity" }> }) {
   return (
-    <CardShell tone="muted">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Your agent at work</p>
-      <ol className="mt-2.5 space-y-2">
-        {msg.steps.map((step, i) => {
-          const state = i < msg.current ? "done" : i === msg.current && !msg.done ? "active" : i === msg.current ? "done" : "pending";
-          return (
-            <li key={i} className="flex items-center gap-2.5 text-sm">
-              {state === "done" ? (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-600">✓</span>
-              ) : state === "active" ? (
-                <span className="relative flex h-5 w-5 items-center justify-center">
-                  <span className="absolute h-4 w-4 animate-ping rounded-full bg-teal-200 opacity-75" />
-                  <span className="relative h-2.5 w-2.5 rounded-full bg-teal-500" />
+    <AgentCard>
+      <div className="px-6 py-5">
+        <Eyebrow tone="text-slate-400">Your agent is working</Eyebrow>
+        <ol className="relative mt-3.5 space-y-3.5 before:absolute before:bottom-2 before:left-[9px] before:top-2 before:w-px before:bg-slate-200">
+          {msg.steps.map((step, i) => {
+            const state = i < msg.current || msg.done ? "done" : i === msg.current ? "active" : "pending";
+            return (
+              <li key={i} className="relative flex items-center gap-3 pl-0 text-[14px]">
+                {state === "done" ? (
+                  <span className="z-10 flex h-[19px] w-[19px] items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white">
+                    ✓
+                  </span>
+                ) : state === "active" ? (
+                  <span className="z-10 flex h-[19px] w-[19px] items-center justify-center rounded-full bg-white">
+                    <span className="spin-slow h-[15px] w-[15px] rounded-full border-2 border-teal-600 border-t-transparent" />
+                  </span>
+                ) : (
+                  <span className="z-10 flex h-[19px] w-[19px] items-center justify-center rounded-full bg-white">
+                    <span className="h-2 w-2 rounded-full bg-slate-200" />
+                  </span>
+                )}
+                <span
+                  className={
+                    state === "pending"
+                      ? "text-slate-300"
+                      : state === "active"
+                        ? "font-medium text-slate-800"
+                        : "text-slate-500"
+                  }
+                >
+                  {step}
                 </span>
-              ) : (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100" />
-              )}
-              <span className={state === "pending" ? "text-slate-300" : state === "active" ? "font-medium text-slate-700" : "text-slate-500"}>
-                {step}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-    </CardShell>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </AgentCard>
   );
 }
 
 /* ------------------------------------------------------------ result card */
 
-const RESULT_HEAD: Record<string, { title: string; tone: "good" | "warm" | "muted" }> = {
-  awaiting_initiator_approval: { title: "Here's what I found", tone: "good" },
-  awaiting_target_approval: { title: "Waiting on the other side", tone: "warm" },
-  connected: { title: "You're connected", tone: "good" },
-  not_relevant: { title: "Filtered out — not a fit", tone: "muted" },
-  declined_by_initiator: { title: "Declined", tone: "muted" },
-  declined_by_target: { title: "They passed politely", tone: "muted" },
+const RESULT_HEAD: Record<string, { title: string; accent: string; eyebrow: string }> = {
+  awaiting_initiator_approval: { title: "Here's what I found", accent: "border-l-emerald-600", eyebrow: "text-emerald-700" },
+  awaiting_target_approval: { title: "Waiting on the other side", accent: "border-l-amber-500", eyebrow: "text-amber-600" },
+  connected: { title: "You're connected", accent: "border-l-emerald-600", eyebrow: "text-emerald-700" },
+  not_relevant: { title: "Filtered out — not a fit", accent: "border-l-slate-300", eyebrow: "text-slate-400" },
+  declined_by_initiator: { title: "Declined", accent: "border-l-slate-300", eyebrow: "text-slate-400" },
+  declined_by_target: { title: "They passed politely", accent: "border-l-slate-300", eyebrow: "text-slate-400" },
 };
 
 function ResultCard({
@@ -315,85 +358,86 @@ function ResultCard({
   onDecide: (decision: "approved" | "rejected") => void;
 }) {
   const r = msg.result;
-  const head = RESULT_HEAD[r.status] ?? { title: "Update", tone: "muted" as const };
+  const head = RESULT_HEAD[r.status] ?? RESULT_HEAD.not_relevant;
   const showActions = r.waiting_on_you && !msg.decided;
 
   return (
-    <CardShell tone={head.tone}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          {head.title} · {r.target_name}
+    <AgentCard className={`border-l-[3px] ${head.accent}`}>
+      <div className="px-6 py-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Eyebrow tone={head.eyebrow}>{head.title}</Eyebrow>
+            <h3 className="mt-1 font-display text-[18px] font-medium tracking-tight text-slate-900">{r.target_name}</h3>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="font-display text-[22px] font-medium leading-none text-slate-800">{r.match_score}</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">match</p>
+          </div>
+        </div>
+
+        <p className="mt-3 text-[14px] leading-relaxed text-slate-600">{r.report.summary}</p>
+
+        {(r.report.match_reasons.length > 0 || r.report.risks.length > 0) && (
+          <ul className="mt-3.5 space-y-1.5 border-t border-slate-100 pt-3.5">
+            {r.report.match_reasons.slice(0, 2).map((reason, i) => (
+              <li key={`m${i}`} className="flex gap-2.5 text-[13px] leading-relaxed text-slate-600">
+                <span className="mt-px text-emerald-600">✓</span> {reason}
+              </li>
+            ))}
+            {[...r.report.risks.slice(0, 2), ...r.report.missing_info.slice(0, 1)].map((item, i) => (
+              <li key={`r${i}`} className="flex gap-2.5 text-[13px] leading-relaxed text-slate-500">
+                <span className="mt-px text-amber-500">!</span> {item}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-[14px] font-medium leading-relaxed text-slate-800">
+          {r.report.recommendation}
         </p>
-        <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
-          match {r.match_score}/100
-        </span>
+
+        {msg.decided === "approved" && r.status === "awaiting_target_approval" && (
+          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-600">
+            ✓ Sent. <span className="font-semibold text-slate-800">Waiting for {r.target_name}&apos;s approval</span> —
+            contact details stay locked until both sides agree.
+          </p>
+        )}
+        {msg.decided === "rejected" && (
+          <p className="mt-3 text-[13.5px] text-slate-600">Declined politely. Nothing was shared.</p>
+        )}
+        {r.status === "connected" && (
+          <p className="mt-3 text-[13.5px] font-medium text-emerald-700">
+            Both sides approved — contact details exchanged. Check your contacts.
+          </p>
+        )}
       </div>
 
-      <p className="mt-2.5 text-sm leading-relaxed text-slate-700">{r.report.summary}</p>
-
-      {r.report.match_reasons.length > 0 && (
-        <ul className="mt-3 space-y-1">
-          {r.report.match_reasons.slice(0, 2).map((reason, i) => (
-            <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-slate-600">
-              <span className="text-emerald-500">✓</span> {reason}
-            </li>
-          ))}
-        </ul>
-      )}
-      {(r.report.risks.length > 0 || r.report.missing_info.length > 0) && (
-        <ul className="mt-2 space-y-1">
-          {[...r.report.risks.slice(0, 2), ...r.report.missing_info.slice(0, 1)].map((item, i) => (
-            <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-slate-500">
-              <span className="text-amber-500">!</span> {item}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <p className="mt-3 rounded-xl bg-white/70 px-3.5 py-2.5 text-sm font-medium text-slate-800 ring-1 ring-slate-200">
-        {r.report.recommendation}
-      </p>
-
-      {msg.decided === "approved" && r.status === "awaiting_target_approval" && (
-        <p className="mt-3 text-sm text-slate-600">
-          ✓ Sent. <span className="font-semibold">Waiting for {r.target_name}&apos;s approval</span> — contact
-          details stay locked until both sides agree. I&apos;ll surface it on your dashboard when they respond.
-        </p>
-      )}
-      {msg.decided === "rejected" && (
-        <p className="mt-3 text-sm text-slate-600">Declined politely. Nothing was shared.</p>
-      )}
-      {r.status === "connected" && (
-        <p className="mt-3 text-sm font-medium text-emerald-700">
-          🎉 Both sides approved — contact details exchanged. Check your contacts.
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 bg-slate-50/60 px-6 py-3.5">
         {showActions && (
           <>
             <button
               onClick={() => onDecide("approved")}
-              className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              className="rounded-xl bg-teal-700 px-4.5 py-2 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(34,92,77,0.35)] transition hover:bg-teal-800"
             >
               Approve intro
             </button>
             <button
               onClick={() => onDecide("rejected")}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-rose-200 hover:text-rose-600"
             >
               Reject politely
             </button>
+            <span className="text-[12px] text-slate-400">Nothing sensitive has been shared yet</span>
           </>
         )}
-        <Link href={`/intros/${r.intro_id}`} className="text-xs font-semibold text-slate-400 hover:text-teal-700">
-          Full report &amp; technical details →
+        <Link
+          href={`/intros/${r.intro_id}`}
+          className="ml-auto text-[12px] font-semibold text-slate-400 transition hover:text-teal-700"
+        >
+          Full report →
         </Link>
       </div>
-      {showActions && (
-        <p className="mt-2.5 text-xs text-slate-400">Nothing sensitive has been shared yet.</p>
-      )}
-    </CardShell>
+    </AgentCard>
   );
 }
 
@@ -401,8 +445,8 @@ function ResultCard({
 
 const SUGGESTIONS = [
   "Find me a GTM cofounder",
-  "Ask Noa if she's open to a short intro, but don't share product details",
-  "Find someone who can give feedback on pricing",
+  "Ask Noa if she's open to a short intro — keep product details private",
+  "Find someone for feedback on pricing",
   "Find early users for my product",
 ];
 
@@ -495,7 +539,6 @@ export default function AgentChat({
     const activityId = mid();
     setMessages((prev) => [...prev, { id: activityId, type: "activity", steps, current: 0, done: false }]);
 
-    // Animate steps while the server runs the real outreach.
     const stepTimer = setInterval(() => {
       setMessages((prev) =>
         prev.map((m) =>
@@ -513,7 +556,6 @@ export default function AgentChat({
         body: JSON.stringify({ targets, outreach_message: message }),
       });
       const data = await res.json();
-      // Let the animation reach the end gracefully.
       await new Promise((r) => setTimeout(r, Math.max(0, steps.length * 800 - 400)));
       clearInterval(stepTimer);
       setMessages((prev) =>
@@ -544,7 +586,10 @@ export default function AgentChat({
       }
     } catch {
       clearInterval(stepTimer);
-      push({ type: "agent", text: "Something went wrong mid-outreach — check the mission page for the current state." } as Omit<Msg, "id">);
+      push({
+        type: "agent",
+        text: "Something went wrong mid-outreach — check the mission page for the current state.",
+      } as Omit<Msg, "id">);
     }
   }
 
@@ -583,19 +628,25 @@ export default function AgentChat({
   const empty = messages.length === 0;
 
   return (
-    <div className="flex h-full min-h-[60vh] flex-col">
-      <div className="flex-1 space-y-5 pb-6">
+    <div className="flex h-full min-h-[68vh] flex-col">
+      <div className="flex-1 space-y-6 pb-8">
         {empty && (
-          <div className="flex flex-col items-center justify-center pt-16 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-500 text-2xl text-white shadow-lg shadow-teal-200/60">
-              ✦
-            </span>
-            <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
-              What do you want your agent to do?
+          <div className="relative flex flex-col items-center justify-center pt-20 text-center">
+            {/* ambient glow */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-4 h-72 w-[34rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(58,138,111,0.12),transparent)]"
+            />
+            <div className="rise relative">
+              <span className="halo absolute -inset-3 rounded-3xl bg-teal-300/30 blur-2xl" aria-hidden />
+              <AgentMark size="lg" />
+            </div>
+            <h2 className="rise rise-1 mt-7 max-w-xl font-display text-[34px] font-medium leading-tight tracking-tight text-slate-900">
+              What should your agent take&nbsp;care&nbsp;of?
             </h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-              {agentName} drafts a mission for anything you ask, shows you exactly what it will say,
-              and never shares anything without your approval.
+            <p className="rise rise-2 mt-3 max-w-md text-[14.5px] leading-relaxed text-slate-500">
+              {agentName} prepares a mission for anything you ask, shows you the exact message it
+              will send, and shares nothing without your approval.
             </p>
           </div>
         )}
@@ -604,14 +655,16 @@ export default function AgentChat({
           switch (m.type) {
             case "user":
               return (
-                <div key={m.id} className="flex justify-end">
-                  <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-3 text-[15px] leading-relaxed text-white shadow-sm">
+                <div key={m.id} className="msg-in flex justify-end">
+                  <div className="max-w-[78%] rounded-2xl rounded-br-md bg-slate-900 px-4.5 py-3 text-[15px] leading-relaxed text-slate-50 shadow-[0_2px_10px_rgba(29,27,23,0.18)]">
                     {m.text}
                   </div>
                 </div>
               );
             case "agent":
-              return <AgentBubble key={m.id}>{m.text}</AgentBubble>;
+              return (
+                <AgentTurn key={m.id}>{m.text}</AgentTurn>
+              );
             case "typing":
               return <Typing key={m.id} />;
             case "draft":
@@ -626,22 +679,21 @@ export default function AgentChat({
             case "activity":
               return <ActivityCard key={m.id} msg={m} />;
             case "result":
-              return (
-                <ResultCard key={m.id} msg={m} onDecide={(d) => void decide(m.id, m.result.intro_id, d)} />
-              );
+              return <ResultCard key={m.id} msg={m} onDecide={(d) => void decide(m.id, m.result.intro_id, d)} />;
           }
         })}
         <div ref={bottomRef} />
       </div>
 
-      <div className="sticky bottom-0 -mx-2 bg-gradient-to-t from-[#f7f8fc] via-[#f7f8fc] to-transparent px-2 pb-4 pt-6">
+      {/* composer */}
+      <div className="sticky bottom-0 -mx-2 bg-gradient-to-t from-[#f6f4ef] via-[#f6f4ef] to-transparent px-2 pb-5 pt-8">
         {empty && (
-          <div className="mb-3 flex flex-wrap justify-center gap-2">
+          <div className="rise rise-3 mb-4 flex flex-wrap justify-center gap-2">
             {SUGGESTIONS.map((s) => (
               <button
                 key={s}
                 onClick={() => void send(s)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm transition hover:border-teal-300 hover:bg-teal-50/40"
+                className="rounded-full border border-slate-200/80 bg-white px-4 py-2 text-[13.5px] text-slate-600 shadow-[0_1px_3px_rgba(29,27,23,0.05)] transition-all duration-150 hover:-translate-y-px hover:border-teal-600/30 hover:text-teal-800 hover:shadow-[0_3px_10px_rgba(29,27,23,0.08)]"
               >
                 {s}
               </button>
@@ -653,7 +705,7 @@ export default function AgentChat({
             e.preventDefault();
             void send(input);
           }}
-          className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/50 focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-100"
+          className={`${empty ? "rise rise-4" : ""} flex items-end gap-2 rounded-[20px] border border-slate-200/90 bg-white p-2 shadow-[0_2px_6px_rgba(29,27,23,0.05),0_18px_50px_-20px_rgba(29,27,23,0.18)] transition focus-within:border-teal-600/50 focus-within:shadow-[0_2px_6px_rgba(29,27,23,0.05),0_18px_50px_-18px_rgba(34,92,77,0.25)]`}
         >
           <textarea
             value={input}
@@ -666,18 +718,18 @@ export default function AgentChat({
             }}
             rows={1}
             placeholder={pendingQuestion ? "Answer your agent…" : "Message your agent…"}
-            className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            className="max-h-40 min-h-[46px] flex-1 resize-none bg-transparent px-3.5 py-2.5 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
           />
           <button
             type="submit"
             disabled={busy || !input.trim()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 text-white shadow-sm transition hover:opacity-90 disabled:opacity-30"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] bg-slate-900 text-[16px] text-white shadow-sm transition-all duration-150 hover:bg-slate-800 disabled:opacity-25"
             aria-label="Send"
           >
             ↑
           </button>
         </form>
-        <p className="mt-2 text-center text-[11px] text-slate-400">
+        <p className="mt-2.5 text-center text-[11.5px] text-slate-400">
           Your agent never contacts anyone or shares anything without your approval.
         </p>
       </div>

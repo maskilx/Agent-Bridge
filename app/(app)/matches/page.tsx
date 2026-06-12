@@ -101,7 +101,7 @@ export default async function MatchesPage() {
                         <button
                           type="submit"
                           disabled={!profileReady}
-                          className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
+                          className="rounded-xl bg-teal-700 hover:bg-teal-800 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
                         >
                           Have my agent reach out
                         </button>

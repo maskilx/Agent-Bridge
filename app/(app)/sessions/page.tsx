@@ -109,7 +109,7 @@ export default async function SessionsPage() {
             <textarea name="message" rows={2} placeholder="Opening message (optional)" className={inputCls} />
             <button
               type="submit"
-              className="w-full rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
             >
               Open session
             </button>

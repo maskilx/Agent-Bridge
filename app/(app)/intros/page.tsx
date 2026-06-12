@@ -33,7 +33,7 @@ function IntroCard({ intro, viewerId, emphasized }: { intro: IntroView; viewerId
           </div>
           <div className="flex flex-col items-end gap-2">
             {emphasized ? (
-              <span className="rounded-full bg-gradient-to-r from-teal-600 to-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm">
+              <span className="rounded-full bg-teal-700 hover:bg-teal-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm">
                 Review &amp; decide →
               </span>
             ) : (
@@ -66,7 +66,7 @@ export default async function IntrosPage() {
         action={
           <Link
             href="/matches"
-            className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+            className="rounded-xl bg-teal-700 hover:bg-teal-800 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
           >
             Find new matches →
           </Link>

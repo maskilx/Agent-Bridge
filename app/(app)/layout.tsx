@@ -4,20 +4,15 @@ import { logout } from "@/lib/actions";
 import { getAgentForUser, listIncoming } from "@/lib/core";
 import { listIntros, waitingOn } from "@/lib/intros";
 import { listMissions, missionNeedsOwner } from "@/lib/missions";
-import { Avatar, Logo, ProviderBadge } from "@/components/ui";
+import NavLink from "@/components/NavLink";
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "▦" },
-  { href: "/ask", label: "Ask my agent", icon: "✳" },
-  { href: "/missions", label: "Missions", icon: "🎯" },
-  { href: "/intros", label: "Introductions", icon: "⇄" },
-  { href: "/matches", label: "Matches", icon: "⌖" },
-  { href: "/inbox", label: "Inbox", icon: "✉" },
-  { href: "/sessions", label: "Sessions", icon: "◉" },
-  { href: "/contacts", label: "Contacts", icon: "☎" },
-  { href: "/search", label: "Search agents", icon: "⌕" },
-  { href: "/agent", label: "My agent", icon: "✦" },
-];
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-1 mt-6 px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-emerald-50/30">
+      {children}
+    </p>
+  );
+}
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -28,77 +23,109 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (m) => missionNeedsOwner(m) && m.status !== "waiting_for_user"
   ).length;
 
+  const initials = user.name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <div className="flex min-h-screen w-full">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-slate-200/80 bg-white px-4 py-6 md:flex">
-        <Link href="/dashboard" className="px-2">
-          <Logo />
+      {/* ---- rail ---- */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[252px] flex-col bg-[#142420] px-3.5 py-5 md:flex">
+        {/* soft top glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(120%_100%_at_50%_0%,rgba(93,167,141,0.14),transparent_70%)]"
+        />
+
+        <Link href="/dashboard" className="relative flex items-center gap-2.5 px-2 pt-1">
+          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-teal-500 to-emerald-600 text-[15px] text-white shadow-[0_2px_10px_rgba(58,138,111,0.45)]">
+            ✦
+          </span>
+          <span className="leading-tight">
+            <span className="block font-display text-[17px] font-medium tracking-tight text-white">
+              AgentBridge
+            </span>
+            <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-50/35">
+              Private alpha
+            </span>
+          </span>
         </Link>
-        <nav className="mt-8 flex flex-1 flex-col gap-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-teal-50/60 hover:text-teal-800"
-            >
-              <span className="flex h-6 w-6 items-center justify-center text-base text-slate-400">
-                {item.icon}
-              </span>
-              {item.label}
-              {item.href === "/inbox" && pendingCount > 0 && (
-                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
-                  {pendingCount}
-                </span>
-              )}
-              {item.href === "/intros" && introCount > 0 && (
-                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
-                  {introCount}
-                </span>
-              )}
-              {item.href === "/missions" && missionCount > 0 && (
-                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
-                  {missionCount}
-                </span>
-              )}
-            </Link>
-          ))}
+
+        <Link
+          href="/ask"
+          className="relative mt-6 flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-[13.5px] font-medium text-white transition hover:border-white/20 hover:bg-white/[0.11]"
+        >
+          <span className="text-emerald-300">✳</span> Ask my agent
+        </Link>
+
+        <nav className="app-scroll relative mt-1 flex-1 overflow-y-auto pb-4">
+          <SectionLabel>Workspace</SectionLabel>
+          <div className="space-y-0.5">
+            <NavLink href="/dashboard" icon="▦" label="Home" />
+            <NavLink href="/missions" icon="◎" label="Missions" badge={missionCount} />
+            <NavLink href="/intros" icon="⇄" label="Introductions" badge={introCount} />
+            <NavLink href="/inbox" icon="✉" label="Inbox" badge={pendingCount} />
+          </div>
+
+          <SectionLabel>Network</SectionLabel>
+          <div className="space-y-0.5">
+            <NavLink href="/matches" icon="⌖" label="Matches" />
+            <NavLink href="/contacts" icon="☷" label="Contacts" />
+            <NavLink href="/search" icon="⌕" label="Search agents" />
+          </div>
+
+          <SectionLabel>Agent</SectionLabel>
+          <div className="space-y-0.5">
+            <NavLink href="/agent" icon="✦" label="My agent" />
+            <NavLink href="/sessions" icon="◉" label="Conversations" />
+          </div>
         </nav>
-        <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
-          <div className="flex items-center gap-3">
-            <Avatar name={user.name} />
+
+        {/* ---- user ---- */}
+        <div className="relative rounded-xl border border-white/[0.07] bg-white/[0.04] p-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-xs font-semibold text-white">
+              {initials}
+            </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800">{user.name}</p>
-              <p className="truncate text-xs text-slate-400">@{user.handle}</p>
+              <p className="truncate text-[13px] font-medium text-white">{user.name}</p>
+              <p className="truncate text-[11px] text-emerald-50/40">{agent.display_name}</p>
             </div>
+            <form action={logout}>
+              <button
+                type="submit"
+                title="Sign out"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-50/35 transition hover:bg-white/10 hover:text-white"
+              >
+                ⏻
+              </button>
+            </form>
           </div>
-          <div className="mt-2.5">
-            <ProviderBadge provider={agent.provider} />
-          </div>
-          <form action={logout} className="mt-3">
-            <button
-              type="submit"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:text-slate-800"
-            >
-              Sign out
-            </button>
-          </form>
         </div>
       </aside>
 
-      <div className="flex min-h-screen w-full flex-1 flex-col md:pl-64">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-6 py-3 backdrop-blur md:hidden">
-          <Link href="/dashboard">
-            <Logo size="sm" />
+      {/* ---- main canvas ---- */}
+      <div className="flex min-h-screen w-full flex-1 flex-col md:pl-[252px]">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200/70 bg-[#f6f4ef]/85 px-5 py-3 backdrop-blur md:hidden">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600 to-emerald-600 text-sm text-white">
+              ✦
+            </span>
+            <span className="font-display text-[16px] font-medium tracking-tight text-slate-900">
+              AgentBridge
+            </span>
           </Link>
-          <nav className="flex gap-4 text-sm font-medium text-slate-600">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-teal-800">
-                {item.label}
-              </Link>
-            ))}
+          <nav className="flex gap-4 text-[13px] font-medium text-slate-600">
+            <Link href="/ask" className="hover:text-teal-800">Ask</Link>
+            <Link href="/missions" className="hover:text-teal-800">Missions</Link>
+            <Link href="/intros" className="hover:text-teal-800">Intros</Link>
+            <Link href="/agent" className="hover:text-teal-800">Agent</Link>
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10 lg:px-10">{children}</main>
       </div>
     </div>
   );

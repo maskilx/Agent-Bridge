@@ -33,7 +33,9 @@ export function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-slate-200/80 bg-white shadow-sm ${className}`}>
+    <div
+      className={`rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(29,27,23,0.04),0_12px_32px_-16px_rgba(29,27,23,0.10)] ${className}`}
+    >
       {children}
     </div>
   );
@@ -99,22 +101,29 @@ export function Avatar({ name, className = "" }: { name: string; className?: str
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+    <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
+      <div className="rise">
+        <h1 className="font-display text-[27px] font-medium leading-snug tracking-tight text-slate-900">
+          {title}
+        </h1>
+        {subtitle && <p className="mt-1.5 max-w-2xl text-[14px] leading-relaxed text-slate-500">{subtitle}</p>}
       </div>
-      {action}
+      {action && <div className="rise rise-1">{action}</div>}
     </div>
   );
 }
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <Card className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-xl">✨</div>
-      <p className="text-sm font-medium text-slate-700">{title}</p>
-      {hint && <p className="mt-1 max-w-sm text-sm text-slate-400">{hint}</p>}
+    <Card className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="relative mb-4">
+        <span className="halo absolute inset-0 rounded-2xl bg-teal-200/50 blur-xl" aria-hidden />
+        <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-600 text-lg text-white shadow-md shadow-teal-600/20">
+          ✦
+        </span>
+      </div>
+      <p className="font-display text-[18px] font-medium text-slate-800">{title}</p>
+      {hint && <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-slate-400">{hint}</p>}
     </Card>
   );
 }
@@ -122,8 +131,10 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
 export function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
   return (
     <Card className="px-5 py-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1.5 text-2xl font-semibold tracking-tight ${accent ?? "text-slate-900"}`}>{value}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">{label}</p>
+      <p className={`mt-1.5 font-display text-[26px] font-medium tracking-tight ${accent ?? "text-slate-900"}`}>
+        {value}
+      </p>
     </Card>
   );
 }

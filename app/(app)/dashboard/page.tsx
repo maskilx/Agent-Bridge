@@ -62,7 +62,7 @@ export default async function DashboardPage() {
           />
           <button
             type="submit"
-            className="shrink-0 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            className="shrink-0 rounded-xl bg-teal-700 hover:bg-teal-800 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           >
             Ask my agent →
           </button>

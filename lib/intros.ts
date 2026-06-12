@@ -219,6 +219,13 @@ export function requestIntro(
 
   // Mission-specific mandate (goal + share rules) overrides the static profile defaults.
   const match = mission ? scoreMissionMatch(mission, myAgent, theirAgent) : scoreMatch(myAgent, theirAgent);
+  // People's own names/handles aren't meaningful "match reasons" — drop them from the terms.
+  const nameTokens = new Set(
+    [initiator.name, initiator.handle, target.name, target.handle]
+      .flatMap((s) => s.toLowerCase().split(/\s+/))
+  );
+  match.forward = match.forward.filter((t) => !nameTokens.has(t));
+  match.reverse = match.reverse.filter((t) => !nameTokens.has(t));
 
   // PRIVACY INVARIANT: the opening message is the ONLY thing the other side
   // receives from this owner. For missions it is the user-approved outreach

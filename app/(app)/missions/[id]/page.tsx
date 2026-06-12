@@ -216,7 +216,7 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
                       type="submit"
-                      className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                      className="rounded-xl bg-teal-700 hover:bg-teal-800 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
                     >
                       Approve mission &amp; send my agent
                     </button>
@@ -310,7 +310,7 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
                               <input type="hidden" name="missionId" value={mission.id} />
                               <button
                                 type="submit"
-                                className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+                                className="rounded-xl bg-teal-700 hover:bg-teal-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
                               >
                                 Reach out
                               </button>
@@ -336,7 +336,7 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
                     <div className="mt-3 flex flex-wrap items-center gap-4">
                       <button
                         type="submit"
-                        className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                        className="rounded-xl bg-teal-700 hover:bg-teal-800 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
                       >
                         Mark completed
                       </button>

@@ -232,7 +232,7 @@ export default async function AgentPage({
 
             <button
               type="submit"
-              className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              className="rounded-xl bg-teal-700 hover:bg-teal-800 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
             >
               {isSetup ? "Activate my agent" : "Save changes"}
             </button>

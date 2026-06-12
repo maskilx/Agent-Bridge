@@ -36,13 +36,13 @@ export default async function LoginPage({
     : [];
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top,#eef2ff_0%,#f7f8fc_60%)] px-6 py-12">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top,#ecf2ec_0%,#f6f4ef_60%)] px-6 py-12">
       <Link href="/" className="mb-10">
         <Logo size="lg" />
       </Link>
-      <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-teal-100/50">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200/70 bg-white p-8 shadow-[0_2px_6px_rgba(29,27,23,0.05),0_24px_70px_-30px_rgba(29,27,23,0.25)]">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Sign in</h1>
+          <h1 className="font-display text-[24px] font-medium tracking-tight text-slate-900">Sign in</h1>
           <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
             Private alpha
           </span>
@@ -106,7 +106,7 @@ export default async function LoginPage({
             />
             <button
               type="submit"
-              className="w-full rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
             >
               Enter the alpha
             </button>

@@ -1,9 +1,55 @@
 @import "tailwindcss";
 
+/* ============================================================
+   AgentBridge product theme — "quiet envoy"
+   Warm porcelain surfaces, ink typography, one deep pine accent.
+   Tailwind's slate/teal/emerald scales are remapped here so the
+   entire app shifts temperature from a single place.
+   ============================================================ */
+@theme {
+  /* slate → warm stone (calm paper neutrals) */
+  --color-slate-50: #fafaf9;
+  --color-slate-100: #f4f3f0;
+  --color-slate-200: #e8e6e1;
+  --color-slate-300: #d8d5cd;
+  --color-slate-400: #a7a299;
+  --color-slate-500: #79746b;
+  --color-slate-600: #57534b;
+  --color-slate-700: #44403a;
+  --color-slate-800: #2b2823;
+  --color-slate-900: #1d1b17;
+
+  /* teal → deep pine (the single brand accent) */
+  --color-teal-50: #f1f7f4;
+  --color-teal-100: #ddede5;
+  --color-teal-200: #c0ddd0;
+  --color-teal-300: #93c4b1;
+  --color-teal-400: #5da78d;
+  --color-teal-500: #3a8a6f;
+  --color-teal-600: #2a7560;
+  --color-teal-700: #225c4d;
+  --color-teal-800: #1d4a3f;
+  --color-teal-900: #193d35;
+
+  /* emerald → moss (gradient partner / success) */
+  --color-emerald-50: #f2f8f1;
+  --color-emerald-100: #e0efde;
+  --color-emerald-200: #c4dfc2;
+  --color-emerald-300: #9cc69b;
+  --color-emerald-400: #6da56e;
+  --color-emerald-500: #4d8a52;
+  --color-emerald-600: #3c7242;
+  --color-emerald-700: #325b38;
+  --color-emerald-800: #2a4930;
+  --color-emerald-900: #233c29;
+
+  --font-display: var(--font-display-serif), "Georgia", serif;
+}
+
 :root {
-  /* app (product screens) — light, stable */
-  --background: #f7f8fc;
-  --foreground: #0f172a;
+  /* app (product screens) — warm porcelain, stable */
+  --background: #f6f4ef;
+  --foreground: #1d1b17;
 
   /* ---- landing theme tokens — DARK is the default ---- */
   --bg: #07090d;
@@ -42,18 +88,105 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-body-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-body-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01" on, "cv05" on;
 }
 
 ::selection {
-  background: rgba(47, 224, 172, 0.35);
+  background: rgba(42, 117, 96, 0.22);
+}
+
+/* refined scrollbars for the app shell */
+.app-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.app-scroll::-webkit-scrollbar-thumb {
+  background: #d8d5cd;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.app-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a7a299;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* ---------- product motion ---------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  opacity: 0;
+  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.15s; }
+.rise-3 { animation-delay: 0.25s; }
+.rise-4 { animation-delay: 0.35s; }
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.msg-in {
+  animation: msg-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes halo {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+.halo {
+  animation: halo 5s ease-in-out infinite;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin-slow {
+  animation: spin-slow 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .msg-in {
+    animation-duration: 0.01s;
+    animation-delay: 0s;
+  }
+  .halo,
+  .spin-slow {
+    animation: none;
+  }
 }
 
 /* ---------- motion ---------- */
