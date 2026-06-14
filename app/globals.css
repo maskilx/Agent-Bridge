@@ -496,3 +496,58 @@ html[data-app-theme="dark"] .app-shell {
     opacity: 1;
   }
 }
+
+/* =======================================================================
+   COMPOSER LIGHT SHOW — Gemini/Lovable-style animated gradient ring that
+   ignites around the chat composer while the agent is thinking. On-brand
+   evergreen/teal/champagne; light + dark; honors reduced-motion.
+   ======================================================================= */
+@property --cg-ang {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.composer-glow {
+  position: relative;
+  border-radius: 22px;
+  isolation: isolate;
+}
+.composer-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1.25px;
+  border-radius: inherit;
+  padding: 1.25px;
+  background: conic-gradient(from var(--cg-ang), #4fb18c, #2dd4bf, #d6b26a, #5eead4, #3d9a7f, #4fb18c);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.3;
+  transition: opacity 0.45s ease;
+  animation: cg-spin 8s linear infinite;
+  pointer-events: none;
+}
+.composer-glow::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from var(--cg-ang), #4fb18c, #2dd4bf, #d6b26a, #5eead4, #3d9a7f, #4fb18c);
+  filter: blur(16px);
+  opacity: 0;
+  transition: opacity 0.5s ease, filter 0.5s ease;
+  animation: cg-spin 8s linear infinite;
+  pointer-events: none;
+}
+.composer-glow:focus-within::before { opacity: 0.7; }
+.composer-glow:focus-within::after { opacity: 0.22; }
+/* the light "comes in and talks to the model" while the agent is thinking */
+.composer-glow[data-thinking="true"]::before { opacity: 1; animation-duration: 2.4s; }
+.composer-glow[data-thinking="true"]::after { opacity: 0.5; filter: blur(22px); animation-duration: 2.4s; }
+:root[data-theme="dark"] .composer-glow:focus-within::after { opacity: 0.32; }
+@keyframes cg-spin { to { --cg-ang: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .composer-glow::before,
+  .composer-glow::after { animation: none !important; }
+}

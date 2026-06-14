@@ -618,6 +618,7 @@ export default function AgentChat({
   const empty = messages.length === 0;
 
   const composer = (
+    <div className="composer-glow w-full" data-thinking={busy ? "true" : undefined}>
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -648,6 +649,7 @@ export default function AgentChat({
         <IconArrowUp size={17} />
       </button>
     </form>
+    </div>
   );
 
   /* ---- first-run: calm, centered — like opening a conversation ---- */
