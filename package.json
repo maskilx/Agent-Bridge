@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start -p ${PORT:-3001}",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3001}",
     "lint": "eslint",
     "db:reset": "rm -f data/agentbridge.db data/agentbridge.db-shm data/agentbridge.db-wal && echo 'Database deleted. Restart `npm run dev` — it reseeds the sample founders automatically.'"
   },
