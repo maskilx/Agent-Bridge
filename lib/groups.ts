@@ -37,6 +37,23 @@ export type GroupSummary = {
   updatedAt: string;
 };
 
+export type ProposalDecision = {
+  userId: string;
+  name: string;
+  decision: "approved" | "rejected" | "pending";
+};
+
+export type GroupProposalView = {
+  id: string;
+  action: string;
+  shares: string;
+  status: "pending" | "approved" | "rejected";
+  proposerUserId: string;
+  proposerName: string;
+  createdAt: string;
+  decisions: ProposalDecision[];
+};
+
 export type GroupView = {
   id: string;
   title: string;
@@ -44,6 +61,7 @@ export type GroupView = {
   ownerUserId: string;
   members: GroupMember[];
   messages: GroupMessage[];
+  proposals: GroupProposalView[];
 };
 
 function isMember(groupId: string, userId: string): boolean {
@@ -124,7 +142,144 @@ export function getGroupView(userId: string, groupId: string): GroupView | null 
     .prepare("SELECT * FROM group_messages WHERE group_id = ? ORDER BY created_at, rowid")
     .all(groupId) as GroupMessage[];
 
-  return { id: g.id, title: g.title, goal: g.goal, ownerUserId: g.owner_user_id, members, messages };
+  const proposalRows = db()
+    .prepare(
+      `SELECT p.*, u.name AS proposer_name
+       FROM group_proposals p JOIN users u ON u.id = p.proposer_user_id
+       WHERE p.group_id = ? ORDER BY p.created_at, p.rowid`
+    )
+    .all(groupId) as {
+    id: string;
+    action: string;
+    shares: string;
+    status: "pending" | "approved" | "rejected";
+    proposer_user_id: string;
+    proposer_name: string;
+    created_at: string;
+  }[];
+  const decisionRows = db()
+    .prepare(
+      `SELECT d.proposal_id, d.user_id, d.decision FROM group_proposal_decisions d
+       JOIN group_proposals p ON p.id = d.proposal_id WHERE p.group_id = ?`
+    )
+    .all(groupId) as { proposal_id: string; user_id: string; decision: "approved" | "rejected" }[];
+
+  const proposals: GroupProposalView[] = proposalRows.map((p) => ({
+    id: p.id,
+    action: p.action,
+    shares: p.shares,
+    status: p.status,
+    proposerUserId: p.proposer_user_id,
+    proposerName: p.proposer_name,
+    createdAt: p.created_at,
+    decisions: members.map((m) => {
+      const d = decisionRows.find((r) => r.proposal_id === p.id && r.user_id === m.userId);
+      return { userId: m.userId, name: m.name, decision: d ? d.decision : ("pending" as const) };
+    }),
+  }));
+
+  return { id: g.id, title: g.title, goal: g.goal, ownerUserId: g.owner_user_id, members, messages, proposals };
+}
+
+/** Members of a group (user ids). */
+function memberIds(groupId: string): string[] {
+  return (
+    db().prepare("SELECT user_id FROM group_members WHERE group_id = ?").all(groupId) as {
+      user_id: string;
+    }[]
+  ).map((r) => r.user_id);
+}
+
+/** Recompute a proposal's status from its decisions: any reject → rejected;
+ *  all members approved → approved; otherwise pending. Posts a resolution note. */
+function recomputeProposal(groupId: string, proposalId: string, action: string, shares: string) {
+  const members = memberIds(groupId);
+  const decisions = db()
+    .prepare("SELECT user_id, decision FROM group_proposal_decisions WHERE proposal_id = ?")
+    .all(proposalId) as { user_id: string; decision: string }[];
+  const rejecter = decisions.find((d) => d.decision === "rejected");
+  const approved = decisions.filter((d) => d.decision === "approved").length;
+
+  let status: "pending" | "approved" | "rejected" = "pending";
+  if (rejecter) status = "rejected";
+  else if (approved >= members.length) status = "approved";
+
+  db()
+    .prepare("UPDATE group_proposals SET status = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(status, proposalId);
+
+  if (status === "approved") {
+    postMessage({
+      groupId,
+      authorUserId: null,
+      authorLabel: "AgentBridge",
+      kind: "system",
+      content: `All members approved: ${action}.${shares.trim() ? ` Now shared with the group: ${shares.trim()}.` : ""}`,
+    });
+  } else if (status === "rejected") {
+    const who = getUserById(rejecter!.user_id);
+    postMessage({
+      groupId,
+      authorUserId: null,
+      authorLabel: "AgentBridge",
+      kind: "system",
+      content: `Proposal declined — ${who?.name ?? "a member"} did not approve: ${action}. Nothing was shared.`,
+    });
+  }
+}
+
+export function proposeGroupAction(opts: {
+  userId: string;
+  groupId: string;
+  action: string;
+  shares: string;
+}): void {
+  if (!isMember(opts.groupId, opts.userId)) throw new Error("You are not a member of this group.");
+  const action = opts.action.trim().slice(0, 600);
+  if (!action) throw new Error("Describe the action you're proposing.");
+  const id = newId("gprop");
+  db()
+    .prepare(
+      "INSERT INTO group_proposals (id, group_id, proposer_user_id, action, shares) VALUES (?, ?, ?, ?, ?)"
+    )
+    .run(id, opts.groupId, opts.userId, action, opts.shares.trim().slice(0, 600));
+  // The proposer consents by proposing.
+  db()
+    .prepare("INSERT OR IGNORE INTO group_proposal_decisions (proposal_id, user_id, decision) VALUES (?, ?, 'approved')")
+    .run(id, opts.userId);
+
+  const proposer = getUserById(opts.userId);
+  postMessage({
+    groupId: opts.groupId,
+    authorUserId: opts.userId,
+    authorLabel: proposer?.name ?? "A member",
+    kind: "system",
+    content: `${proposer?.name ?? "A member"} proposed a group action that needs everyone's approval: ${action}`,
+  });
+  recomputeProposal(opts.groupId, id, action, opts.shares);
+}
+
+export function decideGroupProposal(opts: {
+  userId: string;
+  proposalId: string;
+  decision: "approved" | "rejected";
+}): void {
+  const p = db()
+    .prepare("SELECT * FROM group_proposals WHERE id = ?")
+    .get(opts.proposalId) as
+    | { id: string; group_id: string; action: string; shares: string; status: string }
+    | undefined;
+  if (!p) throw new Error("Proposal not found.");
+  if (!isMember(p.group_id, opts.userId)) throw new Error("You are not a member of this group.");
+  if (p.status !== "pending") return; // already resolved
+
+  db()
+    .prepare(
+      `INSERT INTO group_proposal_decisions (proposal_id, user_id, decision) VALUES (?, ?, ?)
+       ON CONFLICT(proposal_id, user_id) DO UPDATE SET decision = excluded.decision, created_at = datetime('now')`
+    )
+    .run(opts.proposalId, opts.userId, opts.decision);
+  recomputeProposal(p.group_id, p.id, p.action, p.shares);
 }
 
 export function postGroupMessage(userId: string, groupId: string, content: string) {

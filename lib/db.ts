@@ -152,6 +152,27 @@ function migrate(d: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Group checkpoints: a proposed action that needs every member's approval
+    -- before it takes effect. No agent approves on an owner's behalf.
+    CREATE TABLE IF NOT EXISTS group_proposals (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL REFERENCES groups(id),
+      proposer_user_id TEXT NOT NULL REFERENCES users(id),
+      action TEXT NOT NULL,
+      shares TEXT NOT NULL DEFAULT '', -- what would be shared if approved
+      status TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS group_proposal_decisions (
+      proposal_id TEXT NOT NULL REFERENCES group_proposals(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      decision TEXT NOT NULL, -- approved | rejected
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (proposal_id, user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS intros (
       id TEXT PRIMARY KEY,
       initiator_user_id TEXT NOT NULL REFERENCES users(id),

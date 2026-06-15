@@ -19,10 +19,12 @@ import { approveMission, cancelMission, completeMission, updateMissionDraft } fr
 import {
   askGroup,
   createGroup,
+  decideGroupProposal,
   getGroupView,
   groupTranscript,
   postGroupMessage,
   postGroupSummary,
+  proposeGroupAction,
 } from "./groups";
 import { summarizeGroup } from "./model";
 import { allowedEmail, devLoginEnabled, sampleFoundersEnabled } from "./access";
@@ -283,6 +285,31 @@ export async function summarizeGroupAction(formData: FormData) {
     console.log(`[llm] group summarize source=${source}`);
     postGroupSummary(groupId, text);
   }
+  revalidatePath(`/groups/${groupId}`);
+  redirect(`/groups/${groupId}`);
+}
+
+export async function proposeGroupActionAction(formData: FormData) {
+  const user = await requireUser();
+  const groupId = String(formData.get("groupId") ?? "");
+  proposeGroupAction({
+    userId: user.id,
+    groupId,
+    action: String(formData.get("action") ?? ""),
+    shares: String(formData.get("shares") ?? ""),
+  });
+  revalidatePath(`/groups/${groupId}`);
+  redirect(`/groups/${groupId}`);
+}
+
+export async function decideGroupProposalAction(formData: FormData) {
+  const user = await requireUser();
+  const groupId = String(formData.get("groupId") ?? "");
+  decideGroupProposal({
+    userId: user.id,
+    proposalId: String(formData.get("proposalId") ?? ""),
+    decision: String(formData.get("decision") ?? "approved") === "rejected" ? "rejected" : "approved",
+  });
   revalidatePath(`/groups/${groupId}`);
   redirect(`/groups/${groupId}`);
 }
