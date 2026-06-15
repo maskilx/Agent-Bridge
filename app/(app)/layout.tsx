@@ -4,6 +4,7 @@ import { getAgentForUser, listIncoming } from "@/lib/core";
 import { listIntros, waitingOn } from "@/lib/intros";
 import { listMissions, missionNeedsOwner } from "@/lib/missions";
 import NavLink from "@/components/NavLink";
+import { AmbientGlow } from "@/components/AmbientGlow";
 import {
   BrandTile,
   BridgeGlyph,
@@ -44,7 +45,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .toUpperCase();
 
   return (
-    <div className="app-shell flex min-h-screen w-full bg-background text-foreground">
+    <div className="app-shell relative flex min-h-screen w-full bg-background text-foreground">
+      <AmbientGlow />
       {/* ---- rail ---- */}
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[248px] flex-col bg-[#11201c] px-3 pb-3 pt-5 md:flex">
         <div
@@ -110,7 +112,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* ---- main canvas ---- */}
-      <div className="flex min-h-screen w-full flex-1 flex-col md:pl-[248px]">
+      <div className="relative z-[1] flex min-h-screen w-full flex-1 flex-col md:pl-[248px]">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200/70 bg-background/85 px-5 py-3 backdrop-blur md:hidden">
           <Link href="/dashboard" className="flex items-center gap-2">
             <BrandTile size={26} />

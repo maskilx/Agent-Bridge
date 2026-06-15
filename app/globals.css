@@ -551,3 +551,62 @@ html[data-app-theme="dark"] .app-shell {
   .composer-glow::before,
   .composer-glow::after { animation: none !important; }
 }
+
+/* =======================================================================
+   AMBIENT ATMOSPHERE — app-wide soft drifting orbs behind all content.
+   Stronger on home/ask (.ab-ambient-strong), subtle elsewhere. Low opacity
+   so text stays crisp; honors prefers-reduced-motion.
+   ======================================================================= */
+.ab-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ab-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(92px);
+}
+.ab-orb-1 {
+  top: -14%;
+  left: -6%;
+  width: 46rem;
+  height: 40rem;
+  background: radial-gradient(closest-side, rgba(47, 160, 120, 0.16), transparent 70%);
+  animation: ab-drift-1 28s ease-in-out infinite alternate;
+}
+.ab-orb-2 {
+  top: 26%;
+  right: -12%;
+  width: 42rem;
+  height: 38rem;
+  background: radial-gradient(closest-side, rgba(94, 234, 212, 0.13), transparent 72%);
+  animation: ab-drift-2 34s ease-in-out infinite alternate;
+}
+.ab-orb-3 {
+  bottom: -20%;
+  left: 24%;
+  width: 48rem;
+  height: 42rem;
+  background: radial-gradient(closest-side, rgba(60, 110, 150, 0.10), transparent 72%);
+  animation: ab-drift-3 40s ease-in-out infinite alternate;
+}
+/* home / ask: lean the light in a little more */
+.ab-ambient-strong .ab-orb-1 { background: radial-gradient(closest-side, rgba(47, 160, 120, 0.26), transparent 70%); }
+.ab-ambient-strong .ab-orb-2 { background: radial-gradient(closest-side, rgba(94, 234, 212, 0.20), transparent 72%); }
+.ab-ambient-strong .ab-orb-3 { background: radial-gradient(closest-side, rgba(60, 120, 160, 0.15), transparent 72%); }
+
+/* a touch more presence on dark theme */
+:root[data-theme="dark"] .ab-orb-1 { background: radial-gradient(closest-side, rgba(64, 190, 142, 0.20), transparent 70%); }
+:root[data-theme="dark"] .ab-orb-2 { background: radial-gradient(closest-side, rgba(94, 234, 212, 0.14), transparent 72%); }
+:root[data-theme="dark"] .ab-ambient-strong .ab-orb-1 { background: radial-gradient(closest-side, rgba(64, 190, 142, 0.30), transparent 70%); }
+
+@keyframes ab-drift-1 { from { transform: translate(0, 0) scale(1); } to { transform: translate(4%, 5%) scale(1.08); } }
+@keyframes ab-drift-2 { from { transform: translate(0, 0) scale(1); } to { transform: translate(-5%, 3%) scale(1.1); } }
+@keyframes ab-drift-3 { from { transform: translate(0, 0) scale(1); } to { transform: translate(3%, -4%) scale(1.06); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-orb { animation: none !important; }
+}
