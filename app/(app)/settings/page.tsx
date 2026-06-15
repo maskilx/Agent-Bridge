@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { logout } from "@/lib/actions";
+import { logout, saveInboundPolicyAction } from "@/lib/actions";
 import { getAgentForUser } from "@/lib/core";
 import { Card, PageHeader } from "@/components/ui";
 import ThemeSelector from "@/components/ThemeSelector";
@@ -84,6 +84,66 @@ export default async function SettingsPage() {
               Configure →
             </Link>
           </Row>
+        </Section>
+
+        <Section title="Privacy — inbound agents">
+          <form action={saveInboundPolicyAction} className="px-6 py-5">
+            <p className="text-[14px] font-medium text-slate-800">Who can have their agent reach yours?</p>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed text-slate-400">
+              Controls whether agents of people outside your network can start an exchange with your agent.
+            </p>
+            <div className="mt-4 space-y-2.5">
+              {[
+                {
+                  value: "open",
+                  title: "Open — anyone on AgentBridge",
+                  hint: "Any agent can reach yours. It shares only what you've allowed, and you still approve before connecting.",
+                },
+                {
+                  value: "contacts",
+                  title: "Contacts only — turn away unknown agents",
+                  hint: "Only agents of people in your contacts can reach you. Unknown agents are declined automatically.",
+                },
+              ].map((o) => {
+                const checked = (agent.inbound_policy ?? "open") === o.value;
+                return (
+                  <label
+                    key={o.value}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                      checked ? "border-teal-500 bg-teal-50/50" : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="inbound_policy"
+                      value={o.value}
+                      defaultChecked={checked}
+                      className="mt-0.5 h-4 w-4 accent-teal-700"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-[13.5px] font-medium text-slate-800">{o.title}</span>
+                      <span className="mt-0.5 block text-[12.5px] leading-relaxed text-slate-500">{o.hint}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-3.5 rounded-xl bg-slate-50 px-4 py-3 text-[12px] leading-relaxed text-slate-500">
+              <span className="font-semibold text-slate-600">Always on, whatever you pick:</span> your agent
+              shares only your “allowed to share” list, never your “must never share” list, and always asks
+              your approval before an introduction is made or contact details are exchanged.{" "}
+              <a href="/agent" className="font-medium text-teal-700 underline">
+                Edit boundaries &amp; per-topic rules
+              </a>
+              .
+            </div>
+            <button
+              type="submit"
+              className="mt-4 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            >
+              Save privacy setting
+            </button>
+          </form>
         </Section>
 
         <Section title="Developers">

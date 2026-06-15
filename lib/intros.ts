@@ -3,6 +3,7 @@ import {
   createContact,
   getAgentForUser,
   getUserById,
+  isTrustedContact,
   listContacts,
   resolveRecipient,
   type Agent,
@@ -214,6 +215,15 @@ export function requestIntro(
 
   const myAgent = getAgentForUser(initiator.id);
   const theirAgent = getAgentForUser(target.id);
+
+  // Inbound policy: a "contacts-only" agent turns away agents of people who
+  // aren't in its owner's contacts — before any exchange happens.
+  if (theirAgent.inbound_policy === "contacts" && !isTrustedContact(target.id, initiator.id)) {
+    throw new Error(
+      `${target.name} only accepts introductions from their existing contacts right now.`
+    );
+  }
+
   if (!mission && !myAgent.looking_for.trim() && !myAgent.goals.trim())
     throw new Error("Set your agent's goals and what you're looking for before reaching out.");
 

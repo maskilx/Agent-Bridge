@@ -28,8 +28,11 @@ export type Agent = {
   may_share: string;
   must_not_share: string;
   approval_required_for: string;
+  inbound_policy: "open" | "contacts";
   created_at: string;
 };
+
+export type InboundPolicy = "open" | "contacts";
 
 export type AgentRequest = {
   id: string;
@@ -482,6 +485,19 @@ export function listContacts(userId: string): Contact[] {
   return db()
     .prepare("SELECT * FROM contacts WHERE owner_user_id = ? ORDER BY name")
     .all(userId) as Contact[];
+}
+
+/** True if `ownerUserId` has `otherUserId` saved as a linked contact (trusted). */
+export function isTrustedContact(ownerUserId: string, otherUserId: string): boolean {
+  const row = db()
+    .prepare("SELECT 1 FROM contacts WHERE owner_user_id = ? AND linked_user_id = ? LIMIT 1")
+    .get(ownerUserId, otherUserId);
+  return Boolean(row);
+}
+
+/** Update only the inbound policy (who may have their agent reach yours). */
+export function setInboundPolicy(userId: string, policy: "open" | "contacts"): void {
+  db().prepare("UPDATE agents SET inbound_policy = ? WHERE user_id = ?").run(policy, userId);
 }
 
 export function createContact(opts: {

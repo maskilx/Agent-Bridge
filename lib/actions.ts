@@ -10,6 +10,7 @@ import {
   createUser,
   markOnboarded,
   replyToRequest,
+  setInboundPolicy,
   updateAgent,
 } from "./core";
 import { completeSession, decideProposal, sendSessionMessage, startSession } from "./sessions";
@@ -228,4 +229,12 @@ export async function saveAgentProfile(formData: FormData) {
   if (firstSetup) markOnboarded(user.id);
   revalidatePath("/agent");
   redirect(firstSetup ? "/matches" : "/agent");
+}
+
+export async function saveInboundPolicyAction(formData: FormData) {
+  const user = await requireUser();
+  const policy = String(formData.get("inbound_policy") ?? "open") === "contacts" ? "contacts" : "open";
+  setInboundPolicy(user.id, policy);
+  revalidatePath("/settings");
+  redirect("/settings");
 }
