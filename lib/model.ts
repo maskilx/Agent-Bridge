@@ -15,10 +15,17 @@ import type { Agent, User } from "./core";
  * details" must NOT become "I can't share product details" — it becomes a
  * message that simply doesn't contain product details.
  *
- * Provider selection (first configured wins, falls back to rules on any error):
- *   ANTHROPIC_API_KEY  → Anthropic Messages API (ANTHROPIC_MODEL, default claude-opus-4-8)
- *   OPENAI_API_KEY     → OpenAI Chat Completions (OPENAI_MODEL, default gpt-4o-mini)
- *   neither            → deterministic rule-based fallback (no paid calls, ever)
+ * Provider selection via LLM_PROVIDER (falls back to rules on ANY error, timeout,
+ * rate-limit, quota, missing key, or invalid output):
+ *   LLM_PROVIDER=google    → Google Gemini (GOOGLE_API_KEY, LLM_MODEL)
+ *   LLM_PROVIDER=anthropic → Anthropic Messages API (ANTHROPIC_MODEL)
+ *   LLM_PROVIDER=openai    → OpenAI Chat Completions (OPENAI_MODEL)
+ *   LLM_PROVIDER=none / unset+no key → deterministic rule-based fallback (no calls, ever)
+ *
+ * The model is ONLY invoked on explicit user actions (submitting a mission, and
+ * the summarize/next-step helpers below) — never on page load, render, polling,
+ * or background loops. Calls are capped (input length, output tokens, timeout,
+ * <=1 retry, per-context caching, optional daily limit) for free-tier safety.
  */
 
 export type DraftCandidate = {
@@ -55,9 +62,11 @@ export type MissionDraftFields = {
   recommended_handles: string[];
 };
 
+export type LLMSource = "google" | "anthropic" | "openai" | "rules";
+
 export type InterpretResult =
-  | { kind: "clarify"; reply: string; question: string; source: "anthropic" | "openai" | "rules" }
-  | { kind: "draft"; reply: string; fields: MissionDraftFields; source: "anthropic" | "openai" | "rules" };
+  | { kind: "clarify"; reply: string; question: string; source: LLMSource }
+  | { kind: "draft"; reply: string; fields: MissionDraftFields; source: LLMSource };
 
 const DEFAULT_APPROVAL_POLICY =
   "Owner approval is required before contact details are shared, an introduction is made, " +
@@ -224,6 +233,110 @@ async function openaiInterpret(input: InterpretInput): Promise<RawInterpretation
   const data = (await res.json()) as { choices: { message: { content: string | null } }[] };
   const text = data.choices?.[0]?.message?.content;
   return text ? (JSON.parse(text) as RawInterpretation) : null;
+}
+
+/* ---------------- google gemini provider ---------------- */
+
+async function googleInterpret(input: InterpretInput): Promise<RawInterpretation | null> {
+  const { system, user } = buildPrompt(input);
+  const model = LLM.googleModel;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": process.env.GOOGLE_API_KEY! },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+        // responseMimeType forces strictly-valid JSON; the prompt defines the shape,
+        // and finalize()/sanitizeFields() validate it before anything is used.
+        generationConfig: {
+          responseMimeType: "application/json",
+          maxOutputTokens: LLM.maxOutputTokens,
+          temperature: 0.4,
+        },
+      }),
+      signal: AbortSignal.timeout(LLM.timeoutMs),
+    }
+  );
+  // 429 = rate limit / quota exhausted → throw so the caller falls back to rules
+  if (!res.ok) throw new Error(`Google API ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as {
+    promptFeedback?: { blockReason?: string };
+    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  };
+  const cand = data.candidates?.[0];
+  if (!cand || data.promptFeedback?.blockReason || cand.finishReason === "SAFETY") return null;
+  const text = (cand.content?.parts ?? []).map((p) => p.text ?? "").join("");
+  return text ? (JSON.parse(text) as RawInterpretation) : null;
+}
+
+/* ---------------- LLM controls: provider gate, caps, cache, daily limit ---------------- */
+
+const LLM = {
+  get provider(): LLMSource {
+    const p = (process.env.LLM_PROVIDER ?? "").trim().toLowerCase();
+    if (p === "none") return "rules";
+    if (p === "google") return process.env.GOOGLE_API_KEY ? "google" : "rules";
+    if (p === "anthropic") return process.env.ANTHROPIC_API_KEY ? "anthropic" : "rules";
+    if (p === "openai") return process.env.OPENAI_API_KEY ? "openai" : "rules";
+    // no explicit provider → auto-detect by key (back-compat), else rules
+    if (process.env.GOOGLE_API_KEY) return "google";
+    if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+    if (process.env.OPENAI_API_KEY) return "openai";
+    return "rules";
+  },
+  get googleModel() {
+    return process.env.LLM_MODEL?.trim() || "gemini-2.5-flash-lite";
+  },
+  maxInputChars: Number(process.env.LLM_MAX_INPUT_CHARS) || 6000,
+  maxOutputTokens: Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 1024,
+  timeoutMs: Number(process.env.LLM_TIMEOUT_MS) || 15_000,
+  maxRetries: Math.min(1, Math.max(0, Number(process.env.LLM_MAX_RETRIES) || 0)),
+  dailyLimit: Number(process.env.LLM_DAILY_LIMIT) || 200,
+};
+
+function devLog(...args: unknown[]) {
+  if (process.env.NODE_ENV !== "production") console.log("[llm]", ...args);
+}
+
+// Per-process daily request counter (best-effort free-tier guard; resets by date).
+let _day = "";
+let _count = 0;
+function withinDailyLimit(): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== _day) {
+    _day = today;
+    _count = 0;
+  }
+  return _count < LLM.dailyLimit;
+}
+
+// Cache interpretations by a stable hash of the minimal context — so we never
+// call the model twice for the same request/profile/candidate set.
+const _interpretCache = new Map<string, InterpretResult>();
+function hashContext(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+function interpretKey(provider: LLMSource, input: InterpretInput): string {
+  return hashContext(
+    JSON.stringify({
+      provider,
+      model: LLM.googleModel,
+      request: input.request,
+      history: input.history,
+      agent: {
+        d: input.agent.description,
+        g: input.agent.goals,
+        lf: input.agent.looking_for,
+        ms: input.agent.may_share,
+        mns: input.agent.must_not_share,
+      },
+      cands: input.candidates.map((c) => c.handle),
+    })
+  );
 }
 
 /* ---------------- rule-based fallback ---------------- */
@@ -451,21 +564,179 @@ function finalize(raw: RawInterpretation, input: InterpretInput, source: Interpr
 }
 
 export async function interpretRequest(input: InterpretInput): Promise<InterpretResult> {
-  if (process.env.ANTHROPIC_API_KEY) {
-    try {
-      const raw = await anthropicInterpret(input);
-      if (raw) return finalize(raw, input, "anthropic");
-    } catch (err) {
-      console.error("Anthropic interpretation failed, falling back:", err);
-    }
+  const provider = LLM.provider;
+  if (provider === "rules") return finalize(rulesInterpret(input), input, "rules");
+
+  // Cost/privacy: cap input size and trim history to the most recent turns.
+  const capped: InterpretInput = {
+    ...input,
+    request: input.request.slice(0, LLM.maxInputChars),
+    history: input.history.slice(-6),
+  };
+
+  // Never call the model twice for the same context.
+  const key = interpretKey(provider, capped);
+  const hit = _interpretCache.get(key);
+  if (hit) {
+    devLog("interpret cache hit", provider);
+    return hit;
   }
-  if (process.env.OPENAI_API_KEY) {
+
+  if (!withinDailyLimit()) {
+    devLog("daily LLM limit reached — using rule-based fallback");
+    return finalize(rulesInterpret(input), input, "rules");
+  }
+
+  const run =
+    provider === "google" ? googleInterpret : provider === "anthropic" ? anthropicInterpret : openaiInterpret;
+
+  for (let attempt = 0; attempt <= LLM.maxRetries; attempt++) {
     try {
-      const raw = await openaiInterpret(input);
-      if (raw) return finalize(raw, input, "openai");
+      _count++;
+      devLog(`interpret via ${provider} (attempt ${attempt + 1}/${LLM.maxRetries + 1})`);
+      const raw = await run(capped);
+      if (!raw) break; // refusal / safety block / empty → deterministic fallback
+      const result = finalize(raw, capped, provider);
+      _interpretCache.set(key, result);
+      if (_interpretCache.size > 200) _interpretCache.delete(_interpretCache.keys().next().value!);
+      return result;
     } catch (err) {
-      console.error("OpenAI interpretation failed, falling back:", err);
+      devLog(`${provider} interpret failed (attempt ${attempt + 1}):`, (err as Error).message);
+      // any failure — timeout, 429 rate-limit/quota, network, bad JSON — falls through
     }
   }
   return finalize(rulesInterpret(input), input, "rules");
+}
+
+/* =======================================================================
+   summarizeReply + recommendNextStep — the other two narrow LLM uses.
+   Called ONLY on explicit user actions (e.g. a "Summarize reply" / "Suggest
+   next step" button). Same guards as interpretRequest; minimal context only
+   (mission goal + the reply/conversation text — never private notes, the
+   never-share list, or full records); always falls back to deterministic text.
+   The model proposes text for the owner to read — it never sends anything.
+   ======================================================================= */
+
+const _textCache = new Map<string, string>();
+
+/** Low-level guarded text generation. Returns null whenever the LLM is disabled
+ *  or anything goes wrong, so callers use their deterministic fallback. */
+async function generateText(system: string, user: string, seed: string): Promise<string | null> {
+  const provider = LLM.provider;
+  if (provider === "rules") return null;
+
+  const prompt = user.slice(0, LLM.maxInputChars);
+  const key = hashContext(JSON.stringify({ provider, model: LLM.googleModel, system, seed, prompt }));
+  const cached = _textCache.get(key);
+  if (cached !== undefined) {
+    devLog("text cache hit", provider);
+    return cached;
+  }
+  if (!withinDailyLimit()) {
+    devLog("daily LLM limit reached — using text fallback");
+    return null;
+  }
+
+  for (let attempt = 0; attempt <= LLM.maxRetries; attempt++) {
+    try {
+      _count++;
+      let text: string | null = null;
+      if (provider === "google") {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(LLM.googleModel)}:generateContent`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-goog-api-key": process.env.GOOGLE_API_KEY! },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: system }] },
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              generationConfig: { maxOutputTokens: LLM.maxOutputTokens, temperature: 0.3 },
+            }),
+            signal: AbortSignal.timeout(LLM.timeoutMs),
+          }
+        );
+        if (!res.ok) throw new Error(`Google API ${res.status}`);
+        const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+        text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("") || null;
+      } else if (provider === "anthropic") {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": process.env.ANTHROPIC_API_KEY!,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8",
+            max_tokens: LLM.maxOutputTokens,
+            system,
+            messages: [{ role: "user", content: prompt }],
+          }),
+          signal: AbortSignal.timeout(LLM.timeoutMs),
+        });
+        if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
+        const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+        text = data.content?.find((b) => b.type === "text")?.text ?? null;
+      } else {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY!}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+            max_tokens: LLM.maxOutputTokens,
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: prompt },
+            ],
+          }),
+          signal: AbortSignal.timeout(LLM.timeoutMs),
+        });
+        if (!res.ok) throw new Error(`OpenAI API ${res.status}`);
+        const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
+        text = data.choices?.[0]?.message?.content ?? null;
+      }
+
+      const clean = (text ?? "").trim();
+      if (clean) {
+        _textCache.set(key, clean);
+        if (_textCache.size > 200) _textCache.delete(_textCache.keys().next().value!);
+        return clean;
+      }
+      return null;
+    } catch (err) {
+      devLog(`${provider} text gen failed (attempt ${attempt + 1}):`, (err as Error).message);
+    }
+  }
+  return null;
+}
+
+/** Summarize an incoming reply for the owner. Falls back to a trimmed quote. */
+export async function summarizeReply(opts: {
+  missionGoal: string;
+  reply: string;
+}): Promise<{ text: string; source: LLMSource }> {
+  const reply = opts.reply.trim();
+  const fallback = reply.length > 240 ? `They replied: "${reply.slice(0, 220).trim()}…"` : `They replied: "${reply}"`;
+  const llm = await generateText(
+    "You summarize a reply that another agent sent back, for the owner to read. " +
+      "1-2 neutral sentences. Do not invent facts. Do not add opinions or next steps.",
+    `Mission goal: ${opts.missionGoal}\n\nReply received:\n"""${reply}"""\n\nSummarize the reply.`,
+    `summary:${opts.missionGoal}`
+  );
+  return llm ? { text: llm.slice(0, 600), source: LLM.provider } : { text: fallback, source: "rules" };
+}
+
+/** Suggest one concrete next step for the owner. Falls back to a safe default. */
+export async function recommendNextStep(opts: {
+  missionGoal: string;
+  conversation: string;
+}): Promise<{ text: string; source: LLMSource }> {
+  const fallback = "Review the exchange and, if it looks promising, approve a short intro — nothing is sent until you do.";
+  const llm = await generateText(
+    "You suggest ONE concrete next step (max one sentence) for the owner. " +
+      "The agent never sends anything or commits to anything without the owner's explicit approval — reflect that.",
+    `Mission goal: ${opts.missionGoal}\n\nConversation so far:\n"""${opts.conversation.slice(0, 3000)}"""\n\nRecommend one next step.`,
+    `nextstep:${opts.missionGoal}`
+  );
+  return llm ? { text: llm.slice(0, 300), source: LLM.provider } : { text: fallback, source: "rules" };
 }
