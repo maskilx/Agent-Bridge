@@ -16,6 +16,15 @@ import {
 import { completeSession, decideProposal, sendSessionMessage, startSession } from "./sessions";
 import { decideIntro, requestIntro, syncIntros } from "./intros";
 import { approveMission, cancelMission, completeMission, updateMissionDraft } from "./missions";
+import {
+  askGroup,
+  createGroup,
+  getGroupView,
+  groupTranscript,
+  postGroupMessage,
+  postGroupSummary,
+} from "./groups";
+import { summarizeGroup } from "./model";
 import { allowedEmail, devLoginEnabled, sampleFoundersEnabled } from "./access";
 
 /** Sign in as a seeded sample founder — development only (SHOW_SAMPLE_FOUNDERS=1, never in production). */
@@ -230,6 +239,52 @@ export async function saveAgentProfile(formData: FormData) {
   if (firstSetup) markOnboarded(user.id);
   revalidatePath("/agent");
   redirect(firstSetup ? "/matches" : "/agent");
+}
+
+/* ---------------- groups ---------------- */
+
+export async function createGroupAction(formData: FormData) {
+  const user = await requireUser();
+  const memberUserIds = formData.getAll("member").map((m) => String(m)).filter(Boolean);
+  const id = createGroup({
+    ownerUserId: user.id,
+    title: String(formData.get("title") ?? "").trim(),
+    goal: String(formData.get("goal") ?? "").trim(),
+    memberUserIds,
+  });
+  revalidatePath("/groups");
+  redirect(`/groups/${id}`);
+}
+
+export async function postGroupMessageAction(formData: FormData) {
+  const user = await requireUser();
+  const groupId = String(formData.get("groupId") ?? "");
+  postGroupMessage(user.id, groupId, String(formData.get("content") ?? ""));
+  revalidatePath(`/groups/${groupId}`);
+  redirect(`/groups/${groupId}`);
+}
+
+/** Rule-based: each member agent posts a profile-derived response. No model calls. */
+export async function askGroupAction(formData: FormData) {
+  const user = await requireUser();
+  const groupId = String(formData.get("groupId") ?? "");
+  askGroup(user.id, groupId);
+  revalidatePath(`/groups/${groupId}`);
+  redirect(`/groups/${groupId}`);
+}
+
+/** Explicit LLM action (one call, rules fallback): summarize where the group stands. */
+export async function summarizeGroupAction(formData: FormData) {
+  const user = await requireUser();
+  const groupId = String(formData.get("groupId") ?? "");
+  const view = getGroupView(user.id, groupId);
+  if (view) {
+    const { text, source } = await summarizeGroup({ goal: view.goal, transcript: groupTranscript(view) });
+    console.log(`[llm] group summarize source=${source}`);
+    postGroupSummary(groupId, text);
+  }
+  revalidatePath(`/groups/${groupId}`);
+  redirect(`/groups/${groupId}`);
 }
 
 export async function saveInboundPolicyAction(formData: FormData) {

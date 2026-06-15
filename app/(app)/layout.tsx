@@ -83,6 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SectionLabel>Network</SectionLabel>
           <div className="space-y-px">
             <NavLink href="/matches" icon={<IconMatches />} label="Discover" />
+            <NavLink href="/groups" icon={<IconContacts />} label="Groups" />
             <NavLink href="/contacts" icon={<IconContacts />} label="Contacts" />
             <NavLink href="/search" icon={<IconSearch />} label="Search agents" />
           </div>

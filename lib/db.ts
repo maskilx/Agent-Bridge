@@ -127,6 +127,31 @@ function migrate(d: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS groups (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      goal TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS group_members (
+      group_id TEXT NOT NULL REFERENCES groups(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (group_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS group_messages (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL REFERENCES groups(id),
+      author_user_id TEXT REFERENCES users(id), -- null for system notes
+      author_label TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'message', -- message | agent | system | summary
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS intros (
       id TEXT PRIMARY KEY,
       initiator_user_id TEXT NOT NULL REFERENCES users(id),

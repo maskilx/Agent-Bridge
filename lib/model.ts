@@ -757,3 +757,21 @@ export async function recommendNextStep(opts: {
   );
   return llm ? { text: llm.slice(0, 300), source: LLM.provider } : { text: fallback, source: "rules" };
 }
+
+/** Summarize where a group of agents stands, for the owner. Explicit action
+ *  only; minimal context (goal + timeline text); falls back to a safe default. */
+export async function summarizeGroup(opts: {
+  goal: string;
+  transcript: string;
+}): Promise<{ text: string; source: LLMSource }> {
+  const fallback =
+    "Your agent gathered the group's responses above. Review who looks relevant and decide who to take forward — nothing is shared or committed until you approve.";
+  const llm = await generateText(
+    "You summarize a multi-agent group conversation for the owner. 2-4 neutral sentences: who looks " +
+      "relevant or interested, any points of agreement, and what still needs the owner's decision. " +
+      "Do not invent facts. Do not commit to anything on the owner's behalf.",
+    `Group goal: ${opts.goal}\n\nConversation so far:\n"""${opts.transcript}"""\n\nSummarize where the group stands.`,
+    `groupsum:${opts.goal}`
+  );
+  return llm ? { text: llm.slice(0, 800), source: LLM.provider } : { text: fallback, source: "rules" };
+}
