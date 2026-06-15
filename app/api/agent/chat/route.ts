@@ -23,7 +23,13 @@ export async function POST(request: Request) {
 
     const result = await askAgent(user.id, String(body.message ?? ""), history);
     if (result.kind === "clarify") {
-      return Response.json({ kind: "clarify", reply: result.reply, question: result.question });
+      return Response.json({
+        kind: "clarify",
+        reply: result.reply,
+        question: result.question,
+        llmSource: result.llmSource,
+        fallbackReason: result.fallbackReason,
+      });
     }
 
     const m = result.mission;
@@ -33,6 +39,8 @@ export async function POST(request: Request) {
     return Response.json({
       kind: "draft",
       reply: result.reply,
+      llmSource: result.llmSource,
+      fallbackReason: result.fallbackReason,
       mission: {
         id: m.id,
         title: m.title,

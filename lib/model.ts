@@ -64,9 +64,14 @@ export type MissionDraftFields = {
 
 export type LLMSource = "google" | "anthropic" | "openai" | "rules";
 
-export type InterpretResult =
+export type InterpretResult = (
   | { kind: "clarify"; reply: string; question: string; source: LLMSource }
-  | { kind: "draft"; reply: string; fields: MissionDraftFields; source: LLMSource };
+  | { kind: "draft"; reply: string; fields: MissionDraftFields; source: LLMSource }
+) & {
+  /** Why the rules fallback was used (set only when source === "rules" after a
+   *  provider was configured/attempted). Safe to log — never contains secrets. */
+  fallbackReason?: string;
+};
 
 const DEFAULT_APPROVAL_POLICY =
   "Owner approval is required before contact details are shared, an introduction is made, " +
@@ -563,9 +568,16 @@ function finalize(raw: RawInterpretation, input: InterpretInput, source: Interpr
   };
 }
 
+function rulesFallback(input: InterpretInput, reason: string): InterpretResult {
+  const r = finalize(rulesInterpret(input), input, "rules");
+  r.fallbackReason = reason;
+  return r;
+}
+
 export async function interpretRequest(input: InterpretInput): Promise<InterpretResult> {
   const provider = LLM.provider;
-  if (provider === "rules") return finalize(rulesInterpret(input), input, "rules");
+  if (provider === "rules")
+    return rulesFallback(input, "LLM disabled (LLM_PROVIDER unset or 'none', or no API key)");
 
   // Cost/privacy: cap input size and trim history to the most recent turns.
   const capped: InterpretInput = {
@@ -584,28 +596,33 @@ export async function interpretRequest(input: InterpretInput): Promise<Interpret
 
   if (!withinDailyLimit()) {
     devLog("daily LLM limit reached — using rule-based fallback");
-    return finalize(rulesInterpret(input), input, "rules");
+    return rulesFallback(input, `daily LLM call limit reached (LLM_DAILY_LIMIT=${LLM.dailyLimit})`);
   }
 
   const run =
     provider === "google" ? googleInterpret : provider === "anthropic" ? anthropicInterpret : openaiInterpret;
 
+  let reason = `${provider} returned no usable output`;
   for (let attempt = 0; attempt <= LLM.maxRetries; attempt++) {
     try {
       _count++;
       devLog(`interpret via ${provider} (attempt ${attempt + 1}/${LLM.maxRetries + 1})`);
       const raw = await run(capped);
-      if (!raw) break; // refusal / safety block / empty → deterministic fallback
+      if (!raw) {
+        reason = `${provider} refused or returned no usable output`;
+        break; // refusal / safety block / empty → deterministic fallback
+      }
       const result = finalize(raw, capped, provider);
       _interpretCache.set(key, result);
       if (_interpretCache.size > 200) _interpretCache.delete(_interpretCache.keys().next().value!);
       return result;
     } catch (err) {
+      reason = `${provider}: ${(err as Error).message}`.slice(0, 200);
       devLog(`${provider} interpret failed (attempt ${attempt + 1}):`, (err as Error).message);
       // any failure — timeout, 429 rate-limit/quota, network, bad JSON — falls through
     }
   }
-  return finalize(rulesInterpret(input), input, "rules");
+  return rulesFallback(input, reason);
 }
 
 /* =======================================================================

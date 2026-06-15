@@ -2,7 +2,7 @@ import { db, newId } from "./db";
 import { getAgentForUser, getUserById, type Agent } from "./core";
 import { listIntrosByMission, requestIntro, type IntroView } from "./intros";
 import { listMissionMatches, type MissionMatch } from "./matching";
-import { interpretRequest, type DraftCandidate } from "./model";
+import { interpretRequest, type DraftCandidate, type LLMSource } from "./model";
 
 /**
  * Missions — the dynamic layer on top of the stable agent profile.
@@ -44,7 +44,7 @@ export type Mission = {
   expected_output: string;
   outreach_message: string;
   recommended_agent_ids: string; // JSON user ids
-  draft_source: "rules" | "anthropic" | "openai";
+  draft_source: LLMSource;
   status: MissionStatus;
   result_summary: string;
   created_at: string;
@@ -93,9 +93,14 @@ function candidatesFor(userId: string): DraftCandidate[] {
 
 /* ---------------- lifecycle ---------------- */
 
-export type AskResult =
+export type AskResult = (
   | { kind: "clarify"; reply: string; question: string }
-  | { kind: "draft"; reply: string; mission: MissionView };
+  | { kind: "draft"; reply: string; mission: MissionView }
+) & {
+  /** Observability: which layer produced this, and (if it fell back) why. */
+  llmSource: LLMSource;
+  fallbackReason?: string;
+};
 
 /**
  * "Ask my agent": interpret the owner's request. Either the agent asks ONE
@@ -121,8 +126,17 @@ export async function askAgent(
     agent,
     candidates,
   });
+  // Observability: one concise line per explicit mission request (no secrets).
+  console.log(`[llm] interpret source=${result.source}${result.fallbackReason ? ` reason="${result.fallbackReason}"` : ""}`);
+
   if (result.kind === "clarify") {
-    return { kind: "clarify", reply: result.reply, question: result.question };
+    return {
+      kind: "clarify",
+      reply: result.reply,
+      question: result.question,
+      llmSource: result.source,
+      fallbackReason: result.fallbackReason,
+    };
   }
 
   const { fields } = result;
@@ -161,7 +175,13 @@ export async function askAgent(
       JSON.stringify(recommendedIds),
       result.source
     );
-  return { kind: "draft", reply: result.reply, mission: getMissionView(userId, id) };
+  return {
+    kind: "draft",
+    reply: result.reply,
+    mission: getMissionView(userId, id),
+    llmSource: result.source,
+    fallbackReason: result.fallbackReason,
+  };
 }
 
 const EDITABLE_FIELDS = [

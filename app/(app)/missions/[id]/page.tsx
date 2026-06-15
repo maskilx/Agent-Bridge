@@ -20,6 +20,7 @@ const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide tex
 
 const SOURCE_LABEL: Record<MissionView["draft_source"], string> = {
   rules: "drafted by built-in rules",
+  google: "drafted with Gemini",
   anthropic: "drafted with Claude",
   openai: "drafted with OpenAI",
 };
