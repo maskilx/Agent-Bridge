@@ -58,6 +58,15 @@ export type Match = {
   reverse: string[];
 };
 
+export type MatchLabel = "best" | "strong" | "possible";
+
+/** Human-readable relevance label — we show this instead of a raw 0–100 score. */
+export function matchLabel(score: number): MatchLabel {
+  if (score >= 60) return "best";
+  if (score >= 25) return "strong";
+  return "possible";
+}
+
 /** All searchable agents of other onboarded users, scored against the viewer's profile. */
 export function listMatches(viewerUserId: string, viewerAgent: Agent): Match[] {
   const rows = db()
