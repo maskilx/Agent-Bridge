@@ -29,6 +29,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Protect everything, including static chunks and public assets — nothing
-  // identifiable should load for unauthorized visitors.
-  matcher: ["/((?!favicon\\.ico$).*)"],
+  // identifiable should load for unauthorized visitors. /api/health is exempt
+  // so infra health checks (Railway) never require auth.
+  matcher: ["/((?!favicon\\.ico$|api/health$).*)"],
 };
