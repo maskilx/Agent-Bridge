@@ -14,7 +14,7 @@ import {
   updateAgent,
 } from "./core";
 import { completeSession, decideProposal, sendSessionMessage, startSession } from "./sessions";
-import { decideIntro, requestIntro, syncIntros } from "./intros";
+import { consentToIntro, decideIntro, requestIntro, syncIntros } from "./intros";
 import { approveMission, cancelMission, completeMission, updateMissionDraft } from "./missions";
 import {
   askGroup,
@@ -189,6 +189,16 @@ export async function completeMissionAction(formData: FormData) {
   redirect(`/missions/${missionId}`);
 }
 
+export async function consentToIntroAction(formData: FormData) {
+  const user = await requireUser();
+  const introId = String(formData.get("introId") ?? "");
+  const decision = String(formData.get("decision") ?? "approved") === "rejected" ? "rejected" : "approved";
+  consentToIntro(user.id, introId, decision);
+  revalidatePath(`/intros/${introId}`);
+  revalidatePath("/intros");
+  redirect(`/intros/${introId}`);
+}
+
 export async function decideIntroAction(formData: FormData) {
   const user = await requireUser();
   const introId = String(formData.get("introId") ?? "");
@@ -316,7 +326,8 @@ export async function decideGroupProposalAction(formData: FormData) {
 
 export async function saveInboundPolicyAction(formData: FormData) {
   const user = await requireUser();
-  const policy = String(formData.get("inbound_policy") ?? "open") === "contacts" ? "contacts" : "open";
+  const v = String(formData.get("inbound_policy") ?? "open");
+  const policy = v === "contacts" ? "contacts" : v === "approval" ? "approval" : "open";
   setInboundPolicy(user.id, policy);
   revalidatePath("/settings");
   redirect("/settings");

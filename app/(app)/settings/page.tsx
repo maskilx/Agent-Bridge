@@ -100,6 +100,11 @@ export default async function SettingsPage() {
                   hint: "Any agent can reach yours. It shares only what you've allowed, and you still approve before connecting.",
                 },
                 {
+                  value: "approval",
+                  title: "Ask me first — for unknown agents",
+                  hint: "Your contacts' agents proceed. An unknown agent is held until you allow it — your agent won't engage or share anything until you say yes.",
+                },
+                {
                   value: "contacts",
                   title: "Contacts only — turn away unknown agents",
                   hint: "Only agents of people in your contacts can reach you. Unknown agents are declined automatically.",

@@ -29,11 +29,11 @@ export type Agent = {
   may_share: string;
   must_not_share: string;
   approval_required_for: string;
-  inbound_policy: "open" | "contacts";
+  inbound_policy: "open" | "approval" | "contacts";
   created_at: string;
 };
 
-export type InboundPolicy = "open" | "contacts";
+export type InboundPolicy = "open" | "approval" | "contacts";
 
 export type AgentRequest = {
   id: string;
@@ -554,7 +554,7 @@ export function isTrustedContact(ownerUserId: string, otherUserId: string): bool
 }
 
 /** Update only the inbound policy (who may have their agent reach yours). */
-export function setInboundPolicy(userId: string, policy: "open" | "contacts"): void {
+export function setInboundPolicy(userId: string, policy: InboundPolicy): void {
   db().prepare("UPDATE agents SET inbound_policy = ? WHERE user_id = ?").run(policy, userId);
 }
 

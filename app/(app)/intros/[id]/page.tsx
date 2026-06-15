@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { decideIntroAction } from "@/lib/actions";
-import { getIntroView, reportFor, waitingOn, type IntroView } from "@/lib/intros";
+import { consentToIntroAction, decideIntroAction } from "@/lib/actions";
+import { getIntroView, reportFor, type IntroView } from "@/lib/intros";
 import { getMissionView } from "@/lib/missions";
 import { getAgentForUser } from "@/lib/core";
 import { getSessionEvents, type SessionEvent } from "@/lib/sessions";
@@ -172,12 +172,18 @@ export default async function IntroPage({ params }: { params: Promise<{ id: stri
   const otherAgent = getAgentForUser(otherUserId);
   const myAgent = getAgentForUser(user.id);
   const report = reportFor(intro, user.id);
-  const needsMe = waitingOn(intro, user.id);
   const { events } = getSessionEvents(intro.session_id, user.id);
   const m = scoreMatch(myAgent, otherAgent);
   const matchedTerms = [...new Set([...m.forward, ...m.reverse])].slice(0, 10);
 
   const verdictTone = intro.match_score >= 60 ? "strong" : intro.match_score >= 25 ? "possible" : "weak";
+  // Inbound consent: target decides whether to let an unknown agent engage.
+  const needsConsent = intro.status === "awaiting_target_consent" && !mine;
+  const awaitingConsentFromOther = intro.status === "awaiting_target_consent" && mine;
+  // The existing contact-exchange checkpoint decision (NOT the consent gate).
+  const needsCheckpoint =
+    (intro.status === "awaiting_initiator_approval" && mine) ||
+    (intro.status === "awaiting_target_approval" && !mine);
   const waitingOnOther =
     (intro.status === "awaiting_initiator_approval" && !mine) ||
     (intro.status === "awaiting_target_approval" && mine);
@@ -296,7 +302,51 @@ export default async function IntroPage({ params }: { params: Promise<{ id: stri
             </Card>
 
             {/* Decision */}
-            {needsMe && (
+            {needsConsent && (
+              <Card className="border-amber-300 p-6 shadow-md shadow-amber-100/60">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-sm">✋</span>
+                  <h2 className="text-sm font-semibold text-slate-900">Allow this conversation?</h2>
+                </div>
+                <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
+                  {otherName}&apos;s agent wants to start a conversation with yours. You set your agent to ask first
+                  for people outside your contacts. Nothing has been shared in return yet — if you allow it, your
+                  agent shares only your &ldquo;allowed to share&rdquo; info, and you still approve before any
+                  introduction or contact details.
+                </p>
+                <form action={consentToIntroAction} className="mt-4 flex flex-wrap gap-3">
+                  <input type="hidden" name="introId" value={intro.id} />
+                  <button
+                    type="submit"
+                    name="decision"
+                    value="approved"
+                    className="rounded-xl bg-teal-700 hover:bg-teal-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition"
+                  >
+                    Allow my agent to engage
+                  </button>
+                  <button
+                    type="submit"
+                    name="decision"
+                    value="rejected"
+                    className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
+                  >
+                    Decline
+                  </button>
+                </form>
+              </Card>
+            )}
+
+            {awaitingConsentFromOther && (
+              <Card className="p-5">
+                <p className="text-sm leading-relaxed text-slate-600">
+                  <span className="font-semibold text-slate-800">Waiting for {otherName} to allow this.</span>{" "}
+                  {otherName} reviews new agents before their agent engages, so your outreach is held until they say
+                  yes — nothing further has been shared.
+                </p>
+              </Card>
+            )}
+
+            {needsCheckpoint && (
               <Card className="border-amber-300 p-6 shadow-md shadow-amber-100/60">
                 <div className="flex items-center gap-2.5">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-sm">✋</span>

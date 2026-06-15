@@ -65,6 +65,7 @@ export type Intro = {
   session_id: string;
   status:
     | "not_relevant"
+    | "awaiting_target_consent"
     | "awaiting_initiator_approval"
     | "awaiting_target_approval"
     | "connected"
@@ -203,7 +204,7 @@ export function requestIntro(
     .prepare(
       `SELECT id, status FROM intros
        WHERE ((initiator_user_id = ? AND target_user_id = ?) OR (initiator_user_id = ? AND target_user_id = ?))
-         AND status IN ('awaiting_initiator_approval', 'awaiting_target_approval', 'connected')`
+         AND status IN ('awaiting_target_consent', 'awaiting_initiator_approval', 'awaiting_target_approval', 'connected')`
     )
     .get(initiator.id, target.id, target.id, initiator.id) as { id: string; status: string } | undefined;
   if (existing)
@@ -265,41 +266,15 @@ export function requestIntro(
     : false;
   const relevant = match.score >= RELEVANCE_THRESHOLD || namedTarget;
 
-  // 2. Target's agent checks relevance against its OWN owner's criteria.
-  if (!relevant) {
-    sendSessionMessage({
-      userId: target.id,
-      sessionId: session.id,
-      message:
-        `I checked this against ${target.name}'s criteria (looking for: ${summarizeFor(theirAgent.looking_for, "not specified")}). ` +
-        `It does not look like a fit right now (match score ${match.score}/100), so I'm declining politely without involving ${target.name}.`,
-    });
-    completeSession({
-      userId: initiator.id,
-      sessionId: session.id,
-      summary: `Not relevant — ${target.name}'s agent declined (score ${match.score}/100).`,
-    });
-  } else {
-    // The target agent also shares ONLY its owner's allowed information — never
-    // what is being withheld.
-    sendSessionMessage({
-      userId: target.id,
-      sessionId: session.id,
-      message:
-        `This looks relevant to ${target.name}'s goals${match.reverse.length ? ` (overlap on: ${match.reverse.slice(0, 6).join(", ")})` : ""}. ` +
-        `Some background I can offer: ${summarizeFor(theirAgent.may_share, "see the public profile")} ` +
-        `Happy to go deeper once both owners agree to connect.`,
-    });
-    sendSessionMessage({
-      userId: initiator.id,
-      sessionId: session.id,
-      message:
-        `Thank you — I have enough for a structured report. I'm returning to ${initiator.name} with a summary, ` +
-        `match assessment, and a recommendation. No contact details are exchanged until both owners approve.`,
-    });
-  }
+  // Inbound consent: a target on "ask me first" holds a RELEVANT request from a
+  // non-contact until they allow it — their agent doesn't engage or share until then.
+  const needsConsent =
+    relevant &&
+    theirAgent.inbound_policy === "approval" &&
+    !isTrustedContact(target.id, initiator.id);
 
-  // 3. Structured reports for both owners.
+  // Structured reports for both owners — internal analysis built from public
+  // profiles; sharing nothing externally, so safe to compute before consent.
   const reportForInitiator = buildReport({
     owner: initiator,
     ownerAgent: myAgent,
@@ -320,19 +295,45 @@ export function requestIntro(
     theirTerms: match.forward,
   });
 
-  // 4. If relevant, ask the INITIATOR's own approval first (self-checkpoint).
+  let status: Intro["status"];
   let initiatorCheckpointId: number | null = null;
-  if (relevant) {
-    const { event } = sendSessionMessage({
+
+  if (!relevant) {
+    // Target's agent declines politely without involving its owner.
+    sendSessionMessage({
+      userId: target.id,
+      sessionId: session.id,
+      message:
+        `I checked this against ${target.name}'s criteria (looking for: ${summarizeFor(theirAgent.looking_for, "not specified")}). ` +
+        `It does not look like a fit right now (match score ${match.score}/100), so I'm declining politely without involving ${target.name}.`,
+    });
+    completeSession({
       userId: initiator.id,
       sessionId: session.id,
-      kind: "proposal",
-      approver: "self",
-      message:
-        `Approval requested from ${initiator.name}: share your contact details (email) with ${target.name} ` +
-        `and request an introduction. Agent recommendation: ${reportForInitiator.recommendation}`,
+      summary: `Not relevant — ${target.name}'s agent declined (score ${match.score}/100).`,
     });
-    initiatorCheckpointId = event.id;
+    status = "not_relevant";
+  } else if (needsConsent) {
+    // Hold: the target's agent does NOT engage or share until the owner allows it.
+    sendSessionMessage({
+      userId: target.id,
+      sessionId: session.id,
+      message:
+        `${target.name} reviews new agents before their agent engages. I'm holding your request for ${target.name} to allow — ` +
+        `nothing has been shared in return yet.`,
+    });
+    status = "awaiting_target_consent";
+  } else {
+    // Trusted / open: the target's agent engages and the initiator self-checkpoint is armed.
+    initiatorCheckpointId = engageAndArm({
+      initiator,
+      target,
+      theirAgent,
+      reverse: match.reverse,
+      sessionId: session.id,
+      recommendation: reportForInitiator.recommendation,
+    });
+    status = "awaiting_initiator_approval";
   }
 
   const id = newId("int");
@@ -347,7 +348,7 @@ export function requestIntro(
       initiator.id,
       target.id,
       session.id,
-      relevant ? "awaiting_initiator_approval" : "not_relevant",
+      status,
       match.score,
       JSON.stringify(reportForInitiator),
       JSON.stringify(reportForTarget),
@@ -355,6 +356,96 @@ export function requestIntro(
       mission?.id ?? null
     );
   return getIntroById(id)!;
+}
+
+/**
+ * The target's agent engages (sharing only its owner's allowed info) and the
+ * initiator's self-checkpoint is armed. Used both for immediate exchanges and
+ * after a target grants inbound consent. Returns the initiator checkpoint id.
+ */
+function engageAndArm(opts: {
+  initiator: User;
+  target: User;
+  theirAgent: Agent;
+  reverse: string[];
+  sessionId: string;
+  recommendation: string;
+}): number {
+  const { initiator, target, theirAgent, reverse, sessionId, recommendation } = opts;
+  sendSessionMessage({
+    userId: target.id,
+    sessionId,
+    message:
+      `This looks relevant to ${target.name}'s goals${reverse.length ? ` (overlap on: ${reverse.slice(0, 6).join(", ")})` : ""}. ` +
+      `Some background I can offer: ${summarizeFor(theirAgent.may_share, "see the public profile")} ` +
+      `Happy to go deeper once both owners agree to connect.`,
+  });
+  sendSessionMessage({
+    userId: initiator.id,
+    sessionId,
+    message:
+      `Thank you — I have enough for a structured report. I'm returning to ${initiator.name} with a summary, ` +
+      `match assessment, and a recommendation. No contact details are exchanged until both owners approve.`,
+  });
+  const { event } = sendSessionMessage({
+    userId: initiator.id,
+    sessionId,
+    kind: "proposal",
+    approver: "self",
+    message:
+      `Approval requested from ${initiator.name}: share your contact details (email) with ${target.name} ` +
+      `and request an introduction. Agent recommendation: ${recommendation}`,
+  });
+  return event.id;
+}
+
+/**
+ * The target decides whether to let an unknown agent engage (inbound consent).
+ * Approve → their agent engages and the normal approval flow begins; reject →
+ * declined, nothing shared.
+ */
+export function consentToIntro(
+  userId: string,
+  introId: string,
+  decision: "approved" | "rejected"
+): IntroView {
+  const intro = getIntroById(introId);
+  if (!intro) throw new Error(`Introduction ${introId} not found.`);
+  if (intro.target_user_id !== userId)
+    throw new Error("Only the recipient can allow this conversation to start.");
+  if (intro.status !== "awaiting_target_consent") return intro;
+
+  const initiator = getUserById(intro.initiator_user_id)!;
+  const target = getUserById(intro.target_user_id)!;
+
+  if (decision === "rejected") {
+    completeSession({
+      userId: target.id,
+      sessionId: intro.session_id,
+      summary: `${target.name} chose not to engage — nothing was shared.`,
+    });
+    setIntroStatus(intro.id, "declined_by_target");
+    return getIntroById(introId)!;
+  }
+
+  const theirAgent = getAgentForUser(target.id);
+  const myAgent = getAgentForUser(initiator.id);
+  const match = scoreMatch(myAgent, theirAgent);
+  const report = JSON.parse(intro.report_for_initiator) as IntroReport;
+  const checkpointId = engageAndArm({
+    initiator,
+    target,
+    theirAgent,
+    reverse: match.reverse,
+    sessionId: intro.session_id,
+    recommendation: report.recommendation,
+  });
+  db()
+    .prepare(
+      "UPDATE intros SET initiator_checkpoint_id = ?, status = 'awaiting_initiator_approval', updated_at = datetime('now') WHERE id = ?"
+    )
+    .run(checkpointId, intro.id);
+  return getIntroById(introId)!;
 }
 
 function getIntroById(id: string): IntroView | undefined {
@@ -512,6 +603,7 @@ export function reportFor(intro: IntroView, userId: string): IntroReport {
 /** True if this intro is waiting on this user's decision right now. */
 export function waitingOn(intro: IntroView, userId: string): boolean {
   return (
+    (intro.status === "awaiting_target_consent" && intro.target_user_id === userId) ||
     (intro.status === "awaiting_initiator_approval" && intro.initiator_user_id === userId) ||
     (intro.status === "awaiting_target_approval" && intro.target_user_id === userId)
   );
