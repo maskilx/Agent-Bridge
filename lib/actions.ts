@@ -213,6 +213,7 @@ export async function saveAgentProfile(formData: FormData) {
   updateAgent(user.id, {
     display_name: String(formData.get("display_name") ?? "").trim() || `${user.name}'s Agent`,
     description: String(formData.get("description") ?? "").trim(),
+    headline: String(formData.get("headline") ?? "").trim(),
     visibility: String(formData.get("visibility") ?? "invite-only"),
     tags: String(formData.get("tags") ?? "").trim(),
     auto_reply_text: String(formData.get("auto_reply_text") ?? "").trim(),

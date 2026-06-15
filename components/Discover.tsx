@@ -11,6 +11,7 @@ export type DiscoverItem = {
   handle: string;
   picture: string;
   provider: string;
+  headline: string;
   description: string;
   lookingFor: string;
   tags: string[];
@@ -127,6 +128,7 @@ export function Discover({ items }: { items: DiscoverItem[] }) {
                       <MatchBadge label={it.label} />
                     </span>
                   </div>
+                  {it.headline && <p className="mt-0.5 text-[12.5px] text-slate-500">{it.headline}</p>}
                   <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-slate-600">{it.description}</p>
                   <p className="mt-1.5 text-[12px] text-slate-400">{whyLine(it)}</p>
                 </div>
@@ -180,7 +182,14 @@ function ProfilePanel({ it, onClose }: { it: DiscoverItem; onClose: () => void }
             <h2 className="text-xl font-semibold text-slate-900">{it.name}</h2>
             <MatchBadge label={it.label} />
           </div>
+          {it.headline && <p className="mt-0.5 text-[13px] text-slate-600">{it.headline}</p>}
           <p className="mt-0.5 font-mono text-[11px] text-slate-400">@{it.handle} · via {it.provider}</p>
+          <Link
+            href={`/p/${it.handle}`}
+            className="mt-1.5 inline-block text-[12px] font-medium text-teal-700 underline-offset-2 hover:underline"
+          >
+            View full profile →
+          </Link>
 
           <Section title="About">
             <p className="text-[13px] leading-relaxed text-slate-600">{it.description || "No description provided."}</p>

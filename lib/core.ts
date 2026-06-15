@@ -17,6 +17,7 @@ export type Agent = {
   user_id: string;
   display_name: string;
   description: string;
+  headline: string;
   provider: string;
   visibility: "private" | "invite-only" | "searchable";
   tags: string;
@@ -160,6 +161,7 @@ export function updateAgent(
   fields: {
     display_name: string;
     description: string;
+    headline: string;
     visibility: string;
     tags: string;
     auto_reply_text: string;
@@ -174,13 +176,14 @@ export function updateAgent(
 ) {
   db()
     .prepare(
-      `UPDATE agents SET display_name = ?, description = ?, visibility = ?, tags = ?, auto_reply_text = ?, rules = ?,
+      `UPDATE agents SET display_name = ?, description = ?, headline = ?, visibility = ?, tags = ?, auto_reply_text = ?, rules = ?,
               goals = ?, responsibilities = ?, looking_for = ?, may_share = ?, must_not_share = ?, approval_required_for = ?
        WHERE user_id = ?`
     )
     .run(
       fields.display_name,
       fields.description,
+      fields.headline,
       fields.visibility,
       fields.tags,
       fields.auto_reply_text,
@@ -193,6 +196,61 @@ export function updateAgent(
       fields.approval_required_for,
       userId
     );
+}
+
+/** Look up a user by their @handle (no leading @). */
+export function getUserByHandle(handle: string): User | undefined {
+  return db()
+    .prepare("SELECT * FROM users WHERE handle = ?")
+    .get(handle.trim().replace(/^@/, "")) as User | undefined;
+}
+
+export type OwnerProfile = {
+  userId: string;
+  name: string;
+  handle: string;
+  picture: string;
+  headline: string;
+  bio: string;
+  openTo: string;
+  helpsWith: string;
+  interests: string[];
+  provider: string;
+  agentName: string;
+  isSelf: boolean;
+  /** Whether the viewer is allowed to see this profile (visibility rules). */
+  viewable: boolean;
+};
+
+/**
+ * Assemble a person's public owner profile from their user + agent rows,
+ * honoring the agent's visibility relative to the viewer. No model calls.
+ */
+export function getOwnerProfile(viewerUserId: string, handle: string): OwnerProfile | null {
+  const u = getUserByHandle(handle);
+  if (!u) return null;
+  const a = getAgentForUser(u.id);
+  if (!a) return null;
+  const isSelf = u.id === viewerUserId;
+  const viewable =
+    isSelf ||
+    a.visibility === "searchable" ||
+    (a.visibility === "invite-only" && isTrustedContact(u.id, viewerUserId));
+  return {
+    userId: u.id,
+    name: u.name,
+    handle: u.handle,
+    picture: u.picture,
+    headline: a.headline,
+    bio: a.description,
+    openTo: a.looking_for,
+    helpsWith: a.responsibilities,
+    interests: a.tags.split(",").map((t) => t.trim()).filter(Boolean),
+    provider: a.provider,
+    agentName: a.display_name,
+    isSelf,
+    viewable,
+  };
 }
 
 // ---------- discovery ----------

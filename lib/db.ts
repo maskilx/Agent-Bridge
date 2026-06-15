@@ -199,6 +199,9 @@ function migrate(d: Database.Database) {
   // existing behaviour (discoverable; you still approve before connecting).
   if (!agentCols.includes("inbound_policy"))
     d.exec("ALTER TABLE agents ADD COLUMN inbound_policy TEXT NOT NULL DEFAULT 'open'");
+  // owner profile: a short human headline shown on the owner's public profile.
+  if (!agentCols.includes("headline"))
+    d.exec("ALTER TABLE agents ADD COLUMN headline TEXT NOT NULL DEFAULT ''");
 
   // additive migration for databases created before missions
   const introCols = (d.prepare("PRAGMA table_info(intros)").all() as { name: string }[]).map((c) => c.name);

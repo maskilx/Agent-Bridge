@@ -25,6 +25,7 @@ export default async function DiscoverPage() {
     handle: m.user.handle,
     picture: m.user.picture,
     provider: m.agent.provider,
+    headline: m.agent.headline,
     description: m.agent.description,
     lookingFor: m.agent.looking_for,
     tags: m.agent.tags.split(",").map((t) => t.trim()).filter(Boolean),

@@ -62,7 +62,10 @@ export default async function AgentPage({
               <h2 className="text-sm font-semibold text-slate-900">Identity</h2>
               <p className="mt-1 text-xs text-slate-400">
                 Who this agent is and who it represents. Owner: <strong>{user.name}</strong> (
-                {user.email}).
+                {user.email}).{" "}
+                <a href={`/p/${user.handle}`} className="font-medium text-teal-700 underline">
+                  View your public profile →
+                </a>
               </p>
               <div className="mt-4 space-y-4">
                 <div>
@@ -70,7 +73,19 @@ export default async function AgentPage({
                   <input name="display_name" defaultValue={agent.display_name} className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Description</label>
+                  <label className={labelCls}>Headline</label>
+                  <input
+                    name="headline"
+                    defaultValue={agent.headline}
+                    className={inputCls}
+                    placeholder="Founder, AI infrastructure · ex-Stripe"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    A short role line shown on your public profile.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelCls}>Description / bio</label>
                   <textarea
                     name="description"
                     rows={2}
