@@ -23,6 +23,7 @@ import {
   type MatchScore,
   type MissionLike,
 } from "./matching";
+import { sharedGroups } from "./groups";
 
 /** Mission row fields the intro flow needs (read directly to avoid a module cycle with missions.ts). */
 type MissionRow = MissionLike & {
@@ -123,10 +124,20 @@ function buildReport(opts: {
   theirTerms: string[];
   /** present when this exchange executes a mission */
   missionTitle?: string;
+  /** groups both owners already belong to — shared context to build on */
+  shared?: { title: string; goal: string }[];
 }): IntroReport {
   const { owner, other, otherAgent, match, myTerms, theirTerms } = opts;
 
   const match_reasons: string[] = [];
+  if (opts.shared?.length) {
+    const g = opts.shared[0];
+    match_reasons.push(
+      `You're both already in ${
+        opts.shared.length === 1 ? `the group "${g.title}"` : `${opts.shared.length} shared groups (e.g. "${g.title}")`
+      }${g.goal ? ` — goal: ${g.goal}` : ""}, so there's shared context to build on.`
+    );
+  }
   if (myTerms.length)
     match_reasons.push(
       `Their profile matches what you're looking for on: ${myTerms.slice(0, 8).join(", ")}.`
@@ -273,6 +284,9 @@ export function requestIntro(
     theirAgent.inbound_policy === "approval" &&
     !isTrustedContact(target.id, initiator.id);
 
+  // Groups both already share — gives the 1:1 exchange context to build on.
+  const shared = sharedGroups(initiator.id, target.id).map((g) => ({ title: g.title, goal: g.goal }));
+
   // Structured reports for both owners — internal analysis built from public
   // profiles; sharing nothing externally, so safe to compute before consent.
   const reportForInitiator = buildReport({
@@ -284,6 +298,7 @@ export function requestIntro(
     myTerms: match.forward,
     theirTerms: match.reverse,
     missionTitle: mission?.title,
+    shared,
   });
   const reportForTarget = buildReport({
     owner: target,
@@ -293,6 +308,7 @@ export function requestIntro(
     match,
     myTerms: match.reverse,
     theirTerms: match.forward,
+    shared,
   });
 
   let status: Intro["status"];

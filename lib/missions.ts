@@ -2,6 +2,7 @@ import { db, newId } from "./db";
 import { getAgentForUser, getUserById, type Agent } from "./core";
 import { listIntrosByMission, requestIntro, type IntroView } from "./intros";
 import { listMissionMatches, type MissionMatch } from "./matching";
+import { groupsForContext } from "./groups";
 import { interpretRequest, type DraftCandidate, type LLMSource } from "./model";
 
 /**
@@ -110,7 +111,8 @@ export type AskResult = (
 export async function askAgent(
   userId: string,
   request: string,
-  history: { question: string; answer: string }[] = []
+  history: { question: string; answer: string }[] = [],
+  opts: { groupId?: string } = {}
 ): Promise<AskResult> {
   const trimmed = request.trim();
   if (trimmed.length < 3) throw new Error("Tell your agent what you want — a sentence or two.");
@@ -118,6 +120,9 @@ export async function askAgent(
   const user = getUserById(userId)!;
   const agent = getAgentForUser(userId);
   const candidates = candidatesFor(userId);
+  // Group conversations the owner is part of, as background context (no LLM call;
+  // explicit handoff via groupId always included, plus any the request references).
+  const groupContext = groupsForContext(userId, trimmed, opts.groupId ? [opts.groupId] : []);
 
   const result = await interpretRequest({
     request: trimmed,
@@ -125,9 +130,12 @@ export async function askAgent(
     user,
     agent,
     candidates,
+    groupContext,
   });
   // Observability: one concise line per explicit mission request (no secrets).
-  console.log(`[llm] interpret source=${result.source}${result.fallbackReason ? ` reason="${result.fallbackReason}"` : ""}`);
+  console.log(
+    `[llm] interpret source=${result.source} groups=${groupContext.length}${result.fallbackReason ? ` reason="${result.fallbackReason}"` : ""}`
+  );
 
   if (result.kind === "clarify") {
     return {

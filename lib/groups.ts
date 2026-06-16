@@ -345,6 +345,87 @@ export function askGroupMember(userId: string, groupId: string, memberUserId: st
   postMessage({ groupId, authorUserId: memberUserId, authorLabel: `${member.name}'s Agent`, kind: "agent", content });
 }
 
+export type GroupContext = { id: string; title: string; goal: string; digest: string };
+
+/**
+ * Compact, privacy-safe recap of a group, for use as context when a member
+ * later talks to their own agent. NO model call: prefers the latest stored
+ * summary (already produced by an explicit "Summarize" action), otherwise a
+ * deterministic recap of the most recent real messages. Group messages are
+ * profile-level by design, so this is safe as the member's own context.
+ */
+export function groupDigest(groupId: string): string {
+  const rows = db()
+    .prepare(
+      "SELECT author_label, kind, content FROM group_messages WHERE group_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 30"
+    )
+    .all(groupId) as { author_label: string; kind: string; content: string }[];
+
+  const summary = rows.find((r) => r.kind === "summary");
+  if (summary) return summary.content.trim().slice(0, 500);
+
+  const recap = rows
+    .filter((r) => r.kind === "message" || r.kind === "agent")
+    .slice(0, 8)
+    .reverse()
+    .map((r) => `${r.author_label}: ${r.content}`)
+    .join("\n");
+  return recap.trim().slice(0, 500);
+}
+
+/**
+ * Groups (this user is a member of) to use as agent context. `includeIds` are
+ * always included (explicit handoff). With a `requestText`, groups whose title
+ * or a member's first name appears in the text are auto-attached. With neither,
+ * nothing attaches — context stays minimal (cost + privacy). Capped to 2.
+ */
+export function groupsForContext(
+  userId: string,
+  requestText?: string,
+  includeIds: string[] = []
+): GroupContext[] {
+  const rows = db()
+    .prepare(
+      `SELECT g.id, g.title, g.goal FROM groups g
+       JOIN group_members m ON m.group_id = g.id AND m.user_id = ?
+       ORDER BY (SELECT MAX(created_at) FROM group_messages gm WHERE gm.group_id = g.id) DESC`
+    )
+    .all(userId) as { id: string; title: string; goal: string }[];
+
+  const q = (requestText ?? "").toLowerCase();
+  const relevant = rows.filter((g) => {
+    if (includeIds.includes(g.id)) return true;
+    if (!q) return false;
+    if (g.title && q.includes(g.title.toLowerCase())) return true;
+    const names = (
+      db()
+        .prepare(
+          `SELECT u.name FROM group_members m JOIN users u ON u.id = m.user_id
+           WHERE m.group_id = ? AND u.id != ?`
+        )
+        .all(g.id, userId) as { name: string }[]
+    ).map((r) => r.name.toLowerCase().split(/\s+/)[0]);
+    return names.some((n) => n.length >= 3 && q.includes(n));
+  });
+
+  return relevant
+    .slice(0, 2)
+    .map((g) => ({ id: g.id, title: g.title, goal: g.goal, digest: groupDigest(g.id) }))
+    .filter((g) => g.digest.length > 0);
+}
+
+/** Groups both users belong to — used to give a 1:1 intro shared context. */
+export function sharedGroups(a: string, b: string): { id: string; title: string; goal: string }[] {
+  return db()
+    .prepare(
+      `SELECT g.id, g.title, g.goal FROM groups g
+       JOIN group_members ma ON ma.group_id = g.id AND ma.user_id = ?
+       JOIN group_members mb ON mb.group_id = g.id AND mb.user_id = ?
+       ORDER BY g.created_at DESC`
+    )
+    .all(a, b) as { id: string; title: string; goal: string }[];
+}
+
 /** Plain-text transcript for the (explicit, LLM) summarize action. */
 export function groupTranscript(view: GroupView): string {
   return view.messages

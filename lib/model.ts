@@ -45,6 +45,9 @@ export type InterpretInput = {
   user: Pick<User, "name" | "email">;
   agent: Agent;
   candidates: DraftCandidate[];
+  /** Compact, profile-level recaps of group conversations this owner is part of.
+   *  Background only — used to understand the request; never sent externally. */
+  groupContext?: { title: string; goal: string; digest: string }[];
 };
 
 export type MissionDraftFields = {
@@ -117,6 +120,10 @@ function buildPrompt(input: InterpretInput): { system: string; user: string } {
   const qa = input.history
     .map((h) => `Agent asked: "${h.question}"\nOwner answered: "${h.answer}"`)
     .join("\n");
+  const groupLines = (input.groupContext ?? [])
+    .map((g) => `- "${g.title}"${g.goal ? ` (goal: ${g.goal})` : ""}:\n${g.digest}`)
+    .join("\n")
+    .slice(0, 1200);
   return {
     system:
       "You are the planning component of AgentBridge, a controlled agent-representation system. " +
@@ -134,6 +141,10 @@ function buildPrompt(input: InterpretInput): { system: string; user: string } {
       `Owner profile — never share (default, INTERNAL): ${a.must_not_share}\n` +
       `Owner profile — approval required for: ${a.approval_required_for}\n\n` +
       `Known agents the owner's agent can reach:\n${candidateLines || "(none)"}\n\n` +
+      (groupLines
+        ? `Relevant group conversations ${input.user.name} is part of (BACKGROUND ONLY — ` +
+          `use it to understand what the request refers to; never repeat or share it externally):\n${groupLines}\n\n`
+        : "") +
       (qa ? `Earlier in this conversation:\n${qa}\n\n` : "") +
       `The owner's request to their agent:\n"""${input.request}"""\n\n` +
       `Respond as specified.`,
@@ -340,6 +351,7 @@ function interpretKey(provider: LLMSource, input: InterpretInput): string {
         mns: input.agent.must_not_share,
       },
       cands: input.candidates.map((c) => c.handle),
+      groups: (input.groupContext ?? []).map((g) => `${g.title}|${g.digest}`),
     })
   );
 }
@@ -457,6 +469,11 @@ function rulesInterpret(input: InterpretInput): RawInterpretation {
   const title = words.slice(0, 8).join(" ") + (words.length > 8 ? "…" : "");
   const topic = intent?.topic ?? "a short intro";
 
+  // Group context (already profile-level) enriches the owner-facing notes only.
+  const groupNote = (input.groupContext ?? [])
+    .map((g) => `${g.title}${g.goal ? ` — ${g.goal}` : ""}`)
+    .join("; ");
+
   return {
     kind: "draft",
     reply:
@@ -465,7 +482,9 @@ function rulesInterpret(input: InterpretInput): RawInterpretation {
     fields: {
       title: title.charAt(0).toUpperCase() + title.slice(1),
       goal: fullRequest,
-      context: a.description || `Acting on behalf of ${input.user.name}.`,
+      context: [a.description || `Acting on behalf of ${input.user.name}.`, groupNote ? `Following group discussion: ${groupNote}.` : ""]
+        .filter(Boolean)
+        .join(" "),
       target_criteria: criteria,
       allowed_to_share: a.may_share || "Only what is on the public agent profile.",
       must_not_share: mustNot || "Contact details and anything private.",

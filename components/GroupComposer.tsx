@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { askGroupAction, groupSendAction, summarizeGroupAction } from "@/lib/actions";
 
@@ -50,6 +51,12 @@ export function GroupComposer({ groupId, members }: { groupId: string; members: 
             Summarize where things stand
           </button>
         </form>
+        <Link
+          href={`/ask?group=${groupId}`}
+          className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[12px] font-medium text-teal-700 transition hover:border-teal-300 hover:bg-teal-100"
+        >
+          Continue privately with your agent →
+        </Link>
       </div>
 
       {directed && (

@@ -21,7 +21,8 @@ export async function POST(request: Request) {
           .filter((h: { question: string; answer: string }) => h.question && h.answer)
       : [];
 
-    const result = await askAgent(user.id, String(body.message ?? ""), history);
+    const groupId = body.groupId ? String(body.groupId) : undefined;
+    const result = await askAgent(user.id, String(body.message ?? ""), history, { groupId });
     if (result.kind === "clarify") {
       return Response.json({
         kind: "clarify",

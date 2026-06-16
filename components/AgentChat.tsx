@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { BrandTile, IconArrowUp } from "@/components/icons";
+import { BrandTile, BridgeGlyph, IconArrowUp } from "@/components/icons";
 
 /* ------------------------------------------------------------------ types */
 
@@ -443,9 +443,11 @@ const SUGGESTIONS = [
 export default function AgentChat({
   agentName,
   initialQuery,
+  group,
 }: {
   agentName: string;
   initialQuery?: string;
+  group?: { id: string; title: string };
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -480,7 +482,7 @@ export default function AgentChat({
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, history: historyRef.current }),
+        body: JSON.stringify({ message: trimmed, history: historyRef.current, groupId: group?.id }),
       });
       const data = await res.json();
       dropTyping();
@@ -619,6 +621,13 @@ export default function AgentChat({
 
   const composer = (
     <div className="composer-glow w-full" data-thinking={busy ? "true" : undefined}>
+    {group && (
+      <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-[12px] font-medium text-teal-700 ring-1 ring-teal-200">
+        <BridgeGlyph size={13} className="text-teal-600" />
+        Continuing from <span className="font-semibold">{group.title}</span>
+        <span className="text-teal-500/70">· your agent has the group context</span>
+      </div>
+    )}
     <form
       onSubmit={(e) => {
         e.preventDefault();
