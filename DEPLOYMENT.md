@@ -4,7 +4,7 @@ Goal: the app is reachable on a real URL, but **uninvited visitors never see Age
 all** — they are blocked at the edge before any page loads.
 
 > **Current deployment status (June 2026):** deployed to Railway with layer 3 active
-> (`ALLOWED_EMAILS=adi.maskil@gmail.com`; Google OAuth is the only sign-in — until
+> (`ALLOWED_EMAILS=you@example.com`; Google OAuth is the only sign-in — until
 > `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set, production shows "sign-in
 > unavailable" and no one can log in). **Layers 1–2 (Cloudflare Access + JWT
 > verification) are deferred until a domain is available** — Access can only protect a
@@ -62,7 +62,7 @@ default URL).
    - Identity providers: the default **One-time PIN** works immediately; optionally add
      Google as an IdP for one-click access.
 3. Create the policy: **Allow** · Include → **Emails** →
-   `adi.maskil@gmail.com` (add more invitees here later).
+   `you@example.com` (add more invitees here later).
 4. Note two values from the application's **Overview** tab:
    - your **team domain**, e.g. `yourteam.cloudflareaccess.com`
    - the application's **Audience (AUD) tag**
@@ -119,7 +119,7 @@ deployment step, not an optional one:
 ## 5. Allowed emails (authorization allowlist — not authentication)
 
 ```
-ALLOWED_EMAILS=adi.maskil@gmail.com
+ALLOWED_EMAILS=you@example.com
 ```
 
 - `ALLOWED_EMAILS` does **not** prove identity — Google OAuth does that. The allowlist
@@ -135,7 +135,7 @@ ALLOWED_EMAILS=adi.maskil@gmail.com
 |---|---|
 | `APP_URL` | `https://app.yourdomain.com` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | **required** — the only production sign-in |
-| `ALLOWED_EMAILS` | `adi.maskil@gmail.com[,more…]` |
+| `ALLOWED_EMAILS` | `you@example.com[,more…]` |
 | `CF_ACCESS_TEAM_DOMAIN` | `yourteam.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Access application AUD tag |
 | `DATA_DIR` | volume mount path, e.g. `/data` (hosts with disks) |
@@ -149,7 +149,7 @@ builds, but keep it unset regardless).
 
 - Railway/Render/Fly with a persistent volume, deploying the repository root.
 - `app.yourdomain.com` proxied through Cloudflare; Access app with email allowlist
-  (`adi.maskil@gmail.com` to start) + service-token policy for MCP.
+  (`you@example.com` to start) + service-token policy for MCP.
 - All env vars above set; sample founders and dev login disabled (default).
 - Verify after deploy: open the URL in a private window → you must see **Cloudflare's**
   login, never AgentBridge's. Then hit the raw origin URL directly → blank `403`.

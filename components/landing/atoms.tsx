@@ -88,17 +88,9 @@ export function Tag({
   );
 }
 
-/** Fictional portraits bundled in /public/avatars — no external requests. */
-export const AVATARS: Record<string, string> = {
-  sarah: "/avatars/sarah.jpg",
-  jon: "/avatars/jon.jpg",
-  dana: "/avatars/dana.jpg",
-  amir: "/avatars/amir.jpg",
-  lena: "/avatars/lena.jpg",
-  maya: "/avatars/maya.jpg",
-  tom: "/avatars/tom.jpg",
-  ruth: "/avatars/ruth.jpg",
-};
+/** Demo personas render as initials badges (PersonAvatar falls back below).
+ *  Map a name → an image path here only if it's a clearly-licensed/own asset. */
+export const AVATARS: Record<string, string> = {};
 
 /** Person avatar — photo when we have one, initials otherwise. */
 export function PersonAvatar({

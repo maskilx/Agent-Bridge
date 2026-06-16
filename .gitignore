@@ -43,6 +43,17 @@ next-env.d.ts
 # local database
 data/
 out/
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# logs
+*.log
+
+# editor / IDE
+.vscode/
+.idea/
 
 # the env template SHOULD ship
 !.env.example

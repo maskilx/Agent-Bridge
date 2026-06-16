@@ -10,6 +10,13 @@ explicit human approval.
 This repository is the main product codebase — the private alpha foundation that future
 versions build on.
 
+> **Status & license.** This is an experimental alpha shared for transparency and
+> feedback. It is **not** production-hardened and makes no security or availability
+> guarantees — run it at your own risk and never put real sensitive data in a public
+> deployment. **License: to be determined — all rights reserved for now.** No permission
+> is granted yet to use, copy, modify, or redistribute this code; a formal license will
+> be added later.
+
 ## Run it
 
 ```bash
