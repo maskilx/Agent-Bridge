@@ -18,6 +18,7 @@ import { consentToIntro, decideIntro, requestIntro, syncIntros } from "./intros"
 import { approveMission, cancelMission, completeMission, updateMissionDraft } from "./missions";
 import {
   askGroup,
+  askGroupMember,
   createGroup,
   decideGroupProposal,
   getGroupView,
@@ -74,6 +75,21 @@ export async function respondToRequest(formData: FormData) {
   revalidatePath("/inbox");
   revalidatePath("/dashboard");
   redirect(`/requests/${requestId}`);
+}
+
+/** Reply to an inbox request from inside the unified Chats thread. */
+export async function respondInChatAction(formData: FormData) {
+  const user = await requireUser();
+  const requestId = String(formData.get("requestId") ?? "");
+  const approvalStatus = String(formData.get("approvalStatus") ?? "approved") as "approved" | "edited" | "rejected";
+  replyToRequest({
+    responderUserId: user.id,
+    requestId,
+    replyText: String(formData.get("replyText") ?? ""),
+    approvalStatus,
+  });
+  revalidatePath(`/conversations/request/${requestId}`);
+  redirect(`/conversations/request/${requestId}`);
 }
 
 export async function addContact(formData: FormData) {
@@ -274,6 +290,18 @@ export async function postGroupMessageAction(formData: FormData) {
   postGroupMessage(user.id, groupId, String(formData.get("content") ?? ""));
   revalidatePath(`/groups/${groupId}`);
   redirect(`/groups/${groupId}`);
+}
+
+/** Send into a group conversation; a leading /name addresses one agent, which
+ *  then replies (rule-based). Used by the unified Chats group thread. */
+export async function groupSendAction(formData: FormData) {
+  const user = await requireUser();
+  const groupId = String(formData.get("groupId") ?? "");
+  const directedTo = String(formData.get("directedTo") ?? "").trim();
+  postGroupMessage(user.id, groupId, String(formData.get("content") ?? ""));
+  if (directedTo) askGroupMember(user.id, groupId, directedTo);
+  revalidatePath(`/conversations/group/${groupId}`);
+  redirect(`/conversations/group/${groupId}`);
 }
 
 /** Rule-based: each member agent posts a profile-derived response. No model calls. */

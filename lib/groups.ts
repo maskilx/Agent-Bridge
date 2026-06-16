@@ -327,6 +327,24 @@ export function askGroup(userId: string, groupId: string) {
   }
 }
 
+/** One member's agent replies (rule-based, from its public profile). Used when
+ *  a message is directed to that agent with a /name mention. */
+export function askGroupMember(userId: string, groupId: string, memberUserId: string) {
+  if (!isMember(groupId, userId) || !isMember(groupId, memberUserId)) return;
+  const member = getUserById(memberUserId);
+  if (!member) return;
+  const agent = getAgentForUser(memberUserId);
+  const goal = agent.goals.trim();
+  const looking = agent.looking_for.trim();
+  const parts: string[] = [];
+  if (goal) parts.push(`${member.name} is focused on ${goal.replace(/\.$/, "")}`);
+  if (looking) parts.push(`open to ${looking.replace(/\.$/, "")}`);
+  const content = parts.length
+    ? `${parts.join("; ")}. Happy to explore if it's a fit — ${member.name} approves anything before it's shared.`
+    : `${member.name}'s agent is here, but ${member.name} hasn't set goals yet — nothing to share until they do.`;
+  postMessage({ groupId, authorUserId: memberUserId, authorLabel: `${member.name}'s Agent`, kind: "agent", content });
+}
+
 /** Plain-text transcript for the (explicit, LLM) summarize action. */
 export function groupTranscript(view: GroupView): string {
   return view.messages

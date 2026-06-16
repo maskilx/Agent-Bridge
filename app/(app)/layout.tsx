@@ -11,8 +11,6 @@ import {
   IconAgent,
   IconContacts,
   IconHome,
-  IconInbox,
-  IconIntro,
   IconMatches,
   IconMission,
   IconSearch,
@@ -36,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const missionCount = listMissions(user.id).filter(
     (m) => missionNeedsOwner(m) && m.status !== "waiting_for_user"
   ).length;
+  const chatsCount = pendingCount + introCount;
 
   const initials = user.name
     .split(/\s+/)
@@ -77,15 +76,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SectionLabel>Workspace</SectionLabel>
           <div className="space-y-px">
             <NavLink href="/dashboard" icon={<IconHome />} label="Home" />
+            <NavLink href="/conversations" icon={<IconSessions />} label="Chats" badge={chatsCount} />
             <NavLink href="/missions" icon={<IconMission />} label="Missions" badge={missionCount} />
-            <NavLink href="/intros" icon={<IconIntro />} label="Introductions" badge={introCount} />
-            <NavLink href="/inbox" icon={<IconInbox />} label="Inbox" badge={pendingCount} />
           </div>
 
           <SectionLabel>Network</SectionLabel>
           <div className="space-y-px">
             <NavLink href="/matches" icon={<IconMatches />} label="Discover" />
-            <NavLink href="/groups" icon={<IconContacts />} label="Groups" />
             <NavLink href="/contacts" icon={<IconContacts />} label="Contacts" />
             <NavLink href="/search" icon={<IconSearch />} label="Search agents" />
           </div>
@@ -94,7 +91,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* ---- bottom cluster ---- */}
         <div className="relative space-y-px border-t border-white/[0.07] pt-2.5">
           <NavLink href="/agent" icon={<IconAgent />} label="My agent" />
-          <NavLink href="/sessions" icon={<IconSessions />} label="Conversations" />
           <NavLink href="/settings" icon={<IconSettings />} label="Settings" />
           <Link
             href="/settings"
@@ -122,8 +118,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <nav className="flex gap-4 text-[13px] font-medium text-slate-600">
             <Link href="/ask" className="hover:text-teal-700">Ask</Link>
+            <Link href="/conversations" className="hover:text-teal-700">Chats</Link>
             <Link href="/missions" className="hover:text-teal-700">Missions</Link>
-            <Link href="/intros" className="hover:text-teal-700">Intros</Link>
             <Link href="/settings" className="hover:text-teal-700">Settings</Link>
           </nav>
         </header>
