@@ -1,0 +1,48 @@
+name: Bug report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please don't include secrets, API keys, or real
+        personal data in logs or screenshots. Security issues should go through
+        the Security tab instead (see the chooser).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+      placeholder: When I…, I expected…, but instead…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to '...'
+        2. Click '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version, OS, and your `LLM_PROVIDER` setting (or `none`).
+      placeholder: |
+        - Node: 22.x
+        - OS: macOS 15
+        - LLM_PROVIDER: none
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Paste any console output. This is automatically formatted as code.
+      render: shell
+    validations:
+      required: false

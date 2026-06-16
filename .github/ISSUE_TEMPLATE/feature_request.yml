@@ -1,0 +1,42 @@
+name: Feature request / idea
+description: Suggest an improvement or new capability
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AgentBridge is an early alpha — ideas are welcome. Please keep proposals
+        consistent with the project's invariants (see [CONTRIBUTING](../blob/main/CONTRIBUTING.md)).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The user need or pain point — not the solution yet.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like to see. Rough is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Fits the project's principles
+      description: AgentBridge stays approval-first, privacy-preserving, and cheap to run.
+      options:
+        - label: Keeps human approval before anything sensitive is shared or sent
+          required: false
+        - label: Doesn't require new external API calls (or I've explained why it must)
+          required: false
+        - label: Still works with `LLM_PROVIDER=none` (rule-based fallback)
+          required: false
