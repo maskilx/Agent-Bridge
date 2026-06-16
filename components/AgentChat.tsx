@@ -53,7 +53,8 @@ type Msg =
   | { id: number; type: "typing" }
   | { id: number; type: "draft"; mission: DraftMission; state: "pending" | "approved" | "cancelled" }
   | { id: number; type: "activity"; steps: string[]; current: number; done: boolean }
-  | { id: number; type: "result"; result: ResultData; decided?: "approved" | "rejected" };
+  | { id: number; type: "result"; result: ResultData; decided?: "approved" | "rejected" }
+  | { id: number; type: "coordination"; results: ResultData[]; decided: Record<string, "approved" | "rejected"> };
 
 let nextId = 1;
 const mid = () => nextId++;
@@ -431,13 +432,128 @@ function ResultCard({
   );
 }
 
+/* --------------------------------------------------- coordination result */
+
+/** One consolidated result for a multi-person mission: who was reached, who's
+ *  worth your time (ranked), who was filtered out — and one decision per person.
+ *  Turns "the agent sent N messages" into "the agent did the legwork." */
+function CoordinationCard({
+  msg,
+  onDecide,
+}: {
+  msg: Extract<Msg, { type: "coordination" }>;
+  onDecide: (introId: string, decision: "approved" | "rejected") => void;
+}) {
+  const [showFiltered, setShowFiltered] = useState(false);
+  const r = msg.results;
+  const shortlist = r
+    .filter((x) => x.status === "awaiting_initiator_approval" || x.status === "awaiting_target_approval" || x.status === "connected")
+    .sort((a, b) => b.match_score - a.match_score);
+  const held = r.filter((x) => x.status === "awaiting_target_consent");
+  const filtered = r.filter(
+    (x) => x.status === "not_relevant" || x.status === "declined_by_initiator" || x.status === "declined_by_target"
+  );
+  const reason = (x: ResultData) => x.report.match_reasons[0] ?? x.report.recommendation;
+
+  return (
+    <AgentCard accent="border-teal-700/15">
+      <div className="border-b border-slate-100 bg-gradient-to-b from-teal-50/40 to-transparent px-6 pb-4 pt-5">
+        <Eyebrow>Coordination · your agent did the legwork</Eyebrow>
+        <h3 className="mt-1 font-display text-[19px] font-medium tracking-tight text-slate-900">
+          Reached {r.length} {r.length === 1 ? "person" : "people"}
+          {shortlist.length ? ` · ${shortlist.length} worth your time` : ""}
+        </h3>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-slate-500">
+          {shortlist.length
+            ? "Connect with the ones you want — the rest were filtered out before they reached you."
+            : "No one's a clear fit yet. Ask me to widen the search, or try different criteria."}
+        </p>
+      </div>
+
+      <div className="space-y-2.5 px-6 py-5">
+        {shortlist.map((x) => {
+          const decided = msg.decided[x.intro_id];
+          return (
+            <div key={x.intro_id} className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-white px-4 py-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-emerald-500 text-[12px] font-semibold text-white">
+                {x.target_name.slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-[14px] font-semibold text-slate-900">{x.target_name}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-slate-400">{x.match_score}</span>
+                </div>
+                <p className="mt-0.5 line-clamp-1 text-[12.5px] text-slate-500">{reason(x)}</p>
+              </div>
+              {decided ? (
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                    decided === "approved" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {decided === "approved" ? "Intro sent ✓" : "Passed"}
+                </span>
+              ) : (
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    onClick={() => onDecide(x.intro_id, "approved")}
+                    className="rounded-lg bg-teal-700 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-teal-800"
+                  >
+                    Connect
+                  </button>
+                  <button
+                    onClick={() => onDecide(x.intro_id, "rejected")}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+                  >
+                    Pass
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {held.length > 0 && (
+          <p className="px-1 text-[12.5px] leading-relaxed text-slate-400">
+            {held.map((x) => x.target_name).join(", ")} {held.length === 1 ? "is" : "are"} reviewing whether to engage — nothing
+            shared yet.
+          </p>
+        )}
+
+        {filtered.length > 0 && (
+          <div className="pt-0.5">
+            <button
+              onClick={() => setShowFiltered((s) => !s)}
+              className="text-[12.5px] font-medium text-slate-400 transition hover:text-slate-600"
+            >
+              {showFiltered ? "▾" : "▸"} {filtered.length} filtered out — not a fit right now
+            </button>
+            {showFiltered && (
+              <p className="mt-1.5 px-1 text-[12px] leading-relaxed text-slate-400">
+                {filtered.map((x) => x.target_name).join(", ")}. Their agents declined politely on your behalf — they were
+                never bothered.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-3.5">
+        <p className="text-[12px] leading-relaxed text-slate-400">
+          Nothing sensitive has been shared. Contact details are exchanged only when both sides approve.
+        </p>
+      </div>
+    </AgentCard>
+  );
+}
+
 /* ------------------------------------------------------------------ chat */
 
 const SUGGESTIONS = [
-  "Find me a GTM cofounder",
-  "Ask Noa if she's open to a short intro — keep product details private",
-  "Find someone for feedback on pricing",
-  "Find early users for my product",
+  "Find me a technical cofounder who's shipped a dev tool — don't share my funding status",
+  "Screen 5 design partners who run RevOps at B2B companies",
+  "Compare quotes and lead times from a few fulfillment vendors",
+  "Get feedback on my pricing from a few experienced operators",
 ];
 
 export default function AgentChat({
@@ -561,16 +677,16 @@ export default function AgentChat({
       }
       const results: ResultData[] = data.results ?? [];
       const failed = (data.launched ?? []).filter((l: { ok: boolean }) => !l.ok);
-      if (results.length) {
+      if (results.length === 1) {
         push(
-          {
-            type: "agent",
-            text:
-              results.length === 1
-                ? `Done — here's my report on ${results[0].target_name}.`
-                : `Done — here's what I found for each of the ${results.length} people.`,
-          } as Omit<Msg, "id">,
-          ...results.map((r) => ({ type: "result", result: r }) as Omit<Msg, "id">)
+          { type: "agent", text: `Done — here's my read on ${results[0].target_name}.` } as Omit<Msg, "id">,
+          { type: "result", result: results[0] } as Omit<Msg, "id">
+        );
+      } else if (results.length > 1) {
+        // Many people → one consolidated coordination result, not N cards.
+        push(
+          { type: "agent", text: "Done — here's what came back." } as Omit<Msg, "id">,
+          { type: "coordination", results, decided: {} } as Omit<Msg, "id">
         );
       }
       for (const f of failed) {
@@ -609,6 +725,36 @@ export default function AgentChat({
         prev.map((m) =>
           m.id === resultId && m.type === "result"
             ? { ...m, decided: decision, result: { ...m.result, status: data.status, waiting_on_you: data.waiting_on_you } }
+            : m
+        )
+      );
+    } catch {
+      push({ type: "agent", text: "That decision didn't go through — try again." } as Omit<Msg, "id">);
+    }
+  }
+
+  async function decideCoord(msgId: number, introId: string, decision: "approved" | "rejected") {
+    try {
+      const res = await fetch(`/api/agent/intros/${introId}/decide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        push({ type: "agent", text: data.error ?? "That decision didn't go through — try the intro page." } as Omit<Msg, "id">);
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.type === "coordination"
+            ? {
+                ...m,
+                decided: { ...m.decided, [introId]: decision },
+                results: m.results.map((x) =>
+                  x.intro_id === introId ? { ...x, status: data.status, waiting_on_you: data.waiting_on_you } : x
+                ),
+              }
             : m
         )
       );
@@ -729,6 +875,8 @@ export default function AgentChat({
               return <ActivityCard key={m.id} msg={m} />;
             case "result":
               return <ResultCard key={m.id} msg={m} onDecide={(d) => void decide(m.id, m.result.intro_id, d)} />;
+            case "coordination":
+              return <CoordinationCard key={m.id} msg={m} onDecide={(introId, d) => void decideCoord(m.id, introId, d)} />;
           }
         })}
         <div ref={bottomRef} />

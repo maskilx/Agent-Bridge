@@ -97,7 +97,7 @@ export default async function DashboardPage() {
           name="q"
           rows={2}
           required
-          placeholder="Find me a GTM cofounder · Ask Noa if she's open to an intro · Don't share product details"
+          placeholder="Find me a technical cofounder · Screen 5 design partners · Compare a few vendors — don't share my numbers"
           className="max-h-44 min-h-[60px] w-full resize-none bg-transparent px-4 py-3 text-[15px] leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none"
         />
         <div className="flex items-center justify-between gap-3 px-3 pb-1.5">
