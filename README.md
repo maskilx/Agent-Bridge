@@ -13,7 +13,8 @@ versions build on.
 > **Status & license.** This is an experimental alpha shared for transparency and
 > feedback. It is **not** production-hardened and makes no security or availability
 > guarantees — run it at your own risk and never put real sensitive data in a public
-> deployment. Released under the [MIT License](./LICENSE).
+> deployment. Released under the [MIT License](./LICENSE). Found a security or
+> privacy issue? Please report it privately — see [SECURITY.md](./SECURITY.md).
 
 ## Run it
 
