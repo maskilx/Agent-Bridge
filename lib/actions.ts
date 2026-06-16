@@ -281,25 +281,26 @@ export async function createGroupAction(formData: FormData) {
     memberUserIds,
   });
   revalidatePath("/groups");
-  redirect(`/groups/${id}`);
+  redirect(`/conversations/group/${id}`);
 }
 
 export async function postGroupMessageAction(formData: FormData) {
   const user = await requireUser();
   const groupId = String(formData.get("groupId") ?? "");
   postGroupMessage(user.id, groupId, String(formData.get("content") ?? ""));
-  revalidatePath(`/groups/${groupId}`);
-  redirect(`/groups/${groupId}`);
+  revalidatePath(`/conversations/group/${groupId}`);
+  redirect(`/conversations/group/${groupId}`);
 }
 
-/** Send into a group conversation; a leading /name addresses one agent, which
- *  then replies (rule-based). Used by the unified Chats group thread. */
+/** Send into a group conversation. An @-mention can address a member's AGENT
+ *  (it then replies, rule-based) or the OWNER (a directed message, no auto-reply). */
 export async function groupSendAction(formData: FormData) {
   const user = await requireUser();
   const groupId = String(formData.get("groupId") ?? "");
   const directedTo = String(formData.get("directedTo") ?? "").trim();
+  const directedKind = String(formData.get("directedKind") ?? "");
   postGroupMessage(user.id, groupId, String(formData.get("content") ?? ""));
-  if (directedTo) askGroupMember(user.id, groupId, directedTo);
+  if (directedTo && directedKind === "agent") askGroupMember(user.id, groupId, directedTo);
   revalidatePath(`/conversations/group/${groupId}`);
   redirect(`/conversations/group/${groupId}`);
 }
@@ -309,8 +310,8 @@ export async function askGroupAction(formData: FormData) {
   const user = await requireUser();
   const groupId = String(formData.get("groupId") ?? "");
   askGroup(user.id, groupId);
-  revalidatePath(`/groups/${groupId}`);
-  redirect(`/groups/${groupId}`);
+  revalidatePath(`/conversations/group/${groupId}`);
+  redirect(`/conversations/group/${groupId}`);
 }
 
 /** Explicit LLM action (one call, rules fallback): summarize where the group stands. */
@@ -323,8 +324,8 @@ export async function summarizeGroupAction(formData: FormData) {
     console.log(`[llm] group summarize source=${source}`);
     postGroupSummary(groupId, text);
   }
-  revalidatePath(`/groups/${groupId}`);
-  redirect(`/groups/${groupId}`);
+  revalidatePath(`/conversations/group/${groupId}`);
+  redirect(`/conversations/group/${groupId}`);
 }
 
 export async function proposeGroupActionAction(formData: FormData) {
@@ -336,8 +337,8 @@ export async function proposeGroupActionAction(formData: FormData) {
     action: String(formData.get("action") ?? ""),
     shares: String(formData.get("shares") ?? ""),
   });
-  revalidatePath(`/groups/${groupId}`);
-  redirect(`/groups/${groupId}`);
+  revalidatePath(`/conversations/group/${groupId}`);
+  redirect(`/conversations/group/${groupId}`);
 }
 
 export async function decideGroupProposalAction(formData: FormData) {
@@ -348,8 +349,8 @@ export async function decideGroupProposalAction(formData: FormData) {
     proposalId: String(formData.get("proposalId") ?? ""),
     decision: String(formData.get("decision") ?? "approved") === "rejected" ? "rejected" : "approved",
   });
-  revalidatePath(`/groups/${groupId}`);
-  redirect(`/groups/${groupId}`);
+  revalidatePath(`/conversations/group/${groupId}`);
+  redirect(`/conversations/group/${groupId}`);
 }
 
 export async function saveInboundPolicyAction(formData: FormData) {

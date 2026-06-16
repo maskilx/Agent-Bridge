@@ -11,14 +11,17 @@ const PROP_STATUS = {
   rejected: { label: "Declined", tone: "slate" as const },
 };
 
-/** Render a /name mention at the start of a message as a highlighted chip. */
+/** Highlight @mentions (a person or "@Name's agent") inside a message. */
 function renderContent(content: string) {
-  const m = content.match(/^\/(\S+)\s*([\s\S]*)$/);
-  if (!m) return content;
-  return (
-    <>
-      <span className="font-semibold text-teal-700">/{m[1]}</span> {m[2]}
-    </>
+  const parts = content.split(/(@[A-Za-z][A-Za-z0-9]*(?:'s agent)?)/g);
+  return parts.map((p, i) =>
+    /^@/.test(p) ? (
+      <span key={i} className="font-semibold text-teal-700">
+        {p}
+      </span>
+    ) : (
+      p
+    )
   );
 }
 
