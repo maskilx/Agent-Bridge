@@ -303,28 +303,33 @@ export function askGroup(userId: string, groupId: string) {
     authorUserId: userId,
     authorLabel: asker.name,
     kind: "message",
-    content: "Asked the group's agents who's relevant and what they're looking for.",
+    content: "Asked everyone's agents who's relevant here.",
   });
 
   for (const member of view.members) {
     if (member.userId === userId) continue;
     const agent = getAgentForUser(member.userId);
-    const goal = agent.goals.trim();
-    const looking = agent.looking_for.trim();
-    const parts: string[] = [];
-    if (goal) parts.push(`${member.name} is focused on ${goal.replace(/\.$/, "")}`);
-    if (looking) parts.push(`open to ${looking.replace(/\.$/, "")}`);
-    const content = parts.length
-      ? `${parts.join("; ")}. Happy to explore if it's a fit — ${member.name} approves anything before it's shared.`
-      : `${member.name}'s agent is here, but ${member.name} hasn't set goals yet. Nothing to share until they do.`;
     postMessage({
       groupId,
       authorUserId: member.userId,
       authorLabel: `${member.name}'s Agent`,
       kind: "agent",
-      content,
+      content: memberBlurb(member.name, agent.goals, agent.looking_for),
     });
   }
+}
+
+/** A short, conversational one-liner from a member's agent (no repeated
+ *  approval boilerplate — that reassurance lives once in the group note). */
+function memberBlurb(name: string, goals: string, lookingFor: string): string {
+  const parts: string[] = [];
+  const goal = goals.trim().replace(/\.$/, "");
+  const looking = lookingFor.trim().replace(/\.$/, "");
+  if (goal) parts.push(`focused on ${goal}`);
+  if (looking) parts.push(`open to ${looking}`);
+  if (!parts.length) return `${name} hasn't set their goals yet — nothing to share for now.`;
+  const line = parts.join(", ");
+  return line.charAt(0).toUpperCase() + line.slice(1) + ".";
 }
 
 /** One member's agent replies (rule-based, from its public profile). Used when
@@ -334,15 +339,13 @@ export function askGroupMember(userId: string, groupId: string, memberUserId: st
   const member = getUserById(memberUserId);
   if (!member) return;
   const agent = getAgentForUser(memberUserId);
-  const goal = agent.goals.trim();
-  const looking = agent.looking_for.trim();
-  const parts: string[] = [];
-  if (goal) parts.push(`${member.name} is focused on ${goal.replace(/\.$/, "")}`);
-  if (looking) parts.push(`open to ${looking.replace(/\.$/, "")}`);
-  const content = parts.length
-    ? `${parts.join("; ")}. Happy to explore if it's a fit — ${member.name} approves anything before it's shared.`
-    : `${member.name}'s agent is here, but ${member.name} hasn't set goals yet — nothing to share until they do.`;
-  postMessage({ groupId, authorUserId: memberUserId, authorLabel: `${member.name}'s Agent`, kind: "agent", content });
+  postMessage({
+    groupId,
+    authorUserId: memberUserId,
+    authorLabel: `${member.name}'s Agent`,
+    kind: "agent",
+    content: memberBlurb(member.name, agent.goals, agent.looking_for),
+  });
 }
 
 export type GroupContext = { id: string; title: string; goal: string; digest: string };

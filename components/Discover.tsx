@@ -77,7 +77,7 @@ function ReachOut({ it, block = false }: { it: DiscoverItem; block?: boolean }) 
         type="submit"
         className={`rounded-xl bg-teal-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-800 ${block ? "w-full py-2.5 text-sm" : ""}`}
       >
-        Have my agent reach out
+        Ask my agent to reach out
       </button>
     </form>
   );
@@ -213,19 +213,17 @@ function ProfilePanel({ it, onClose }: { it: DiscoverItem; onClose: () => void }
             </Section>
           )}
 
-          <Section title="Why your agent flagged them">
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
-              <p className="text-[13px] leading-relaxed text-slate-700">{whyLine(it)}</p>
-              {it.reasons.length > 0 && (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {it.reasons.map((r) => (
-                    <span key={r} className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] text-emerald-700">
-                      {r}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+          <Section title="Why they're relevant to you">
+            <p className="text-[13px] leading-relaxed text-slate-600">{whyLine(it)}</p>
+            {it.reasons.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {it.reasons.map((r) => (
+                  <span key={r} className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] text-emerald-700 ring-1 ring-emerald-100">
+                    {r}
+                  </span>
+                ))}
+              </div>
+            )}
           </Section>
         </div>
 

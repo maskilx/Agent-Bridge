@@ -13,7 +13,6 @@ import {
   IconHome,
   IconMatches,
   IconMission,
-  IconSearch,
   IconSessions,
   IconSettings,
 } from "@/components/icons";
@@ -84,7 +83,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="space-y-px">
             <NavLink href="/matches" icon={<IconMatches />} label="Discover" />
             <NavLink href="/contacts" icon={<IconContacts />} label="Contacts" />
-            <NavLink href="/search" icon={<IconSearch />} label="Search agents" />
           </div>
         </nav>
 

@@ -574,7 +574,7 @@ html[data-app-theme="dark"] .app-shell {
   left: -6%;
   width: 46rem;
   height: 40rem;
-  background: radial-gradient(closest-side, rgba(47, 160, 120, 0.16), transparent 70%);
+  background: radial-gradient(closest-side, rgba(47, 160, 120, 0.20), transparent 70%);
   animation: ab-drift-1 28s ease-in-out infinite alternate;
 }
 .ab-orb-2 {
@@ -582,7 +582,7 @@ html[data-app-theme="dark"] .app-shell {
   right: -12%;
   width: 42rem;
   height: 38rem;
-  background: radial-gradient(closest-side, rgba(94, 234, 212, 0.13), transparent 72%);
+  background: radial-gradient(closest-side, rgba(94, 234, 212, 0.16), transparent 72%);
   animation: ab-drift-2 34s ease-in-out infinite alternate;
 }
 .ab-orb-3 {
@@ -590,7 +590,7 @@ html[data-app-theme="dark"] .app-shell {
   left: 24%;
   width: 48rem;
   height: 42rem;
-  background: radial-gradient(closest-side, rgba(60, 110, 150, 0.10), transparent 72%);
+  background: radial-gradient(closest-side, rgba(60, 110, 150, 0.13), transparent 72%);
   animation: ab-drift-3 40s ease-in-out infinite alternate;
 }
 /* home / ask: lean the light in a little more */

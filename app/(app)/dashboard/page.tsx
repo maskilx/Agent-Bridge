@@ -146,7 +146,7 @@ export default async function DashboardPage() {
       {/* Recent */}
       <section className="mt-9">
         <div className="mb-2.5 flex items-center justify-between px-1">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Recent</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Recent activity</h2>
           {recent.length > 0 && (
             <Link href="/missions" className="text-xs font-medium text-teal-700 hover:text-teal-900">
               All →
